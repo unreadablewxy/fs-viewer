@@ -1,0 +1,59 @@
+@import './global.sass'
+
+button, input, label, select
+    font-size: 1em
+    min-width: 1em
+
+input, select
+    display: inline-block
+    vertical-align: bottom
+    width: 100%
+    height: $space-text-box-height
+    margin: 0
+    border: 1px solid transparent
+    outline: none
+    color: $color-text
+    background-color: $color-input
+    transition: border-color $time-color-change
+
+    &:focus
+        outline: none
+        border-color: $color-input-outline-focus
+
+input
+    // Select adds its own padding
+    // TODO: find out how to reliably sync it with inputs
+    padding: 0 $space-narrow
+
+input[type=range]
+    -webkit-appearance: none
+    appearance: none
+    padding: 0
+
+    &::-webkit-slider-thumb
+        -webkit-appearance: none
+        appearance: none
+        width: 1em
+        height: 2em
+        background-color: $color-clickable-hover
+        cursor: pointer
+
+select > option
+    color: $color-text
+    background-color: $color-panel
+
+label > div:first-child
+    font-size: $size-font-small
+    margin-bottom: $space-narrow
+    text-transform: uppercase
+
+button
+    border: 0
+    outline: 0
+    background-color: $color-clickable
+    color: $color-text
+    transition: background-color $time-button-background
+    vertical-align: middle
+
+    &:hover
+        background-color: $color-clickable-hover

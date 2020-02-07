@@ -1,0 +1,16 @@
+{
+    "presets": [
+        ["@babel/preset-env", {
+            "targets": {
+                "chrome": "70"
+            }
+        }],
+        "@babel/preset-typescript",
+        "@babel/preset-react"
+    ],
+    "plugins": [
+        "@babel/proposal-class-properties",
+        "@babel/proposal-object-rest-spread",
+        "@babel/plugin-transform-runtime"
+    ]
+}

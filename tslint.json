@@ -1,0 +1,32 @@
+{
+    "defaultSeverity": "error",
+    "extends": [
+        "tslint:recommended"
+    ],
+    "jsRules": {},
+    "rules": {
+        "only-arrow-functions": [
+            true,
+            "allow-declarations",
+            "allow-named-functions"
+        ],
+        "whitespace": [
+            true,
+            "check-branch",
+            "check-separator",
+            "check-rest-spread",
+            "check-type-operator",
+            "check-preblock"
+        ],
+        "arrow-parens": false,
+        "curly": false,
+        "forin": false,
+        "interface-name": false,
+        "ordered-imports": false,
+        "object-literal-sort-keys": false,
+        "fileName": false,
+        "prefer-const": false,
+        "prefer-for-of": false
+    },
+    "rulesDirectory": []
+}

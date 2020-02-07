@@ -1,0 +1,53 @@
+$color-background: #000
+$color-text: #ABABAB
+
+$color-clickable: rgba(#FFF, 0.05)
+$color-clickable-hover: rgba(#FFF, 0.15)
+$color-input: $color-clickable
+$color-input-outline-focus: rgba(28, 98, 185)
+$color-list-hover: rgba(#FFF, 0.05)
+
+$color-border: #F00
+$color-panel: #1E1E1E
+
+$space-default: 0.6em
+$space-narrow: 0.3em
+$space-wide: 1em
+
+$space-line-height: 1.5em
+$space-line-height-minimal: 1em
+$space-line-touchable: 2em
+
+$space-text-box-height: 2em
+
+$space-contextual-item-vertical: $space-narrow
+$space-contextual-item-sides: $space-wide
+$space-contextual-input-sides: $space-narrow
+
+$size-font-small: 0.8em
+
+$time-color-change: 0.1s
+$time-button-background: $time-color-change
+$time-resize-animation: 0.2s
+
+@mixin list-no-defaults
+    display: block
+    list-style: none
+    padding: 0
+    margin: 0
+
+    li
+        display: block
+        padding: 0
+        margin: 0
+
+@mixin svg-icon($size)
+    width: $size
+    height: $size
+    vertical-align: middle
+
+    path
+        fill: $color-text
+
+@function rgba-to-rgb($rgba, $background: #fff)
+    @return mix(rgb(red($rgba), green($rgba), blue($rgba)), $background, alpha($rgba) * 100%)

@@ -1,0 +1,72 @@
+{
+  "name": "viewer",
+  "version": "0.0.0",
+  "description": "An image viewer",
+  "main": "index.js",
+  "scripts": {
+    "test-types": "tsc",
+    "build": "webpack --mode=production",
+    "watch": "webpack --mode=development --watch",
+    "postinstall": "electron-builder install-app-deps",
+    "release": "npm run build && electron-builder",
+    "start": "electron ."
+  },
+  "build": {
+    "appId": "de.unreadableco.freakshow.viewer",
+    "files": [
+      "index.js",
+      "build/*",
+      "!node_modules/**/*"
+    ],
+    "publish": null
+  },
+  "repository": "https://unreadableco.de",
+  "keywords": [],
+  "author": "UnreadableCode",
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "@babel/core": "^7.8.4",
+    "@babel/plugin-proposal-class-properties": "^7.8.3",
+    "@babel/plugin-proposal-object-rest-spread": "^7.8.3",
+    "@babel/plugin-transform-runtime": "^7.8.3",
+    "@babel/preset-env": "^7.8.4",
+    "@babel/preset-react": "^7.8.3",
+    "@babel/preset-typescript": "^7.8.3",
+    "@types/react": "^16.9.19",
+    "@types/react-dom": "^16.9.5",
+    "@types/react-router-dom": "^5.1.3",
+    "@types/reselect": "^2.2.0",
+    "babel-loader": "^8.0.6",
+    "css-loader": "^3.4.2",
+    "electron": "^7.1.11",
+    "electron-builder": "^22.3.2",
+    "html-webpack-plugin": "^3.2.0",
+    "license-webpack-plugin": "^2.1.3",
+    "mini-css-extract-plugin": "^0.9.0",
+    "node-loader": "^0.6.0",
+    "sass": "^1.25.0",
+    "sass-loader": "^8.0.2",
+    "source-map-loader": "^0.2.4",
+    "style-loader": "^1.1.3",
+    "terser-webpack-plugin": "^2.3.4",
+    "ts-loader": "^6.2.1",
+    "tslint": "^5.20.1",
+    "tslint-immutable": "^6.0.1",
+    "tslint-webpack-plugin": "^2.1.0",
+    "typescript": "^3.7.5",
+    "webpack": "^4.41.5",
+    "webpack-cli": "^3.3.10"
+  },
+  "optionalDependencies": {
+    "fs-xattr": "unreadable-code/fs-xattr#typing",
+    "shell-image-win": "github:unreadable-code/shell-image-win#upgrade-nan"
+  },
+  "dependencies": {
+    "@mdi/js": "^4.8.95",
+    "@mdi/react": "^1.2.1",
+    "react": "^16.12.0",
+    "react-dom": "^16.12.0",
+    "react-router-dom": "^5.1.2",
+    "reselect": "^4.0.0"
+  }
+}
