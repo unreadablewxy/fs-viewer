@@ -5,6 +5,7 @@ import {
     readdir,
     existsSync,
     mkdirSync,
+    writeFileSync,
 } from "fs";
 import {dirname, join as joinPath} from "path";
 import readline from "readline";
@@ -76,6 +77,8 @@ function findTagNamespaceFile(directory: string): string | null {
         const tryPath = joinPath(p, tagsNSFile);
         if (existsSync(tryPath))
             return tryPath;
+        else
+            writeFileSync(tryPath, '');
     }
 
     return null;
