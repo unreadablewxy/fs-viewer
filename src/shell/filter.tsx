@@ -1,13 +1,7 @@
-import "./filter.sass";
 import * as React from "react";
-import {Icon} from "@mdi/react";
-import {
-    mdiTag,
-    mdiTagOutline,
-    mdiTagPlusOutline,
-} from "@mdi/js";
+import {createSelector} from "reselect";
 
-import {FilterTagSearch} from "./filter-tag-search";
+import {TagList, Tag} from "./tag-list";
 
 export function filterFiles(
     unfiltered: FilesView,
@@ -36,6 +30,25 @@ export function filterFiles(
     return result;
 }
 
+function compareTags(a: Tag, b: Tag): number {
+    return a.label.localeCompare(b.label);
+}
+
+function convertTagMapToList(lookup: Map<number, string>): Tag[] {
+    let result = new Array<Tag>(lookup.size);
+    let n = 0;
+    for (const [id, label] of lookup)
+        result[n++] = {id, label};
+
+    return result.sort(compareTags);
+}
+
+const convertTagMapToListMemoized = createSelector<
+    Props,
+    Map<number, string>,
+    Tag[]
+>(props => props.tags.names, convertTagMapToList);
+
 interface Props {
     api: API;
     directory?: string;
@@ -47,71 +60,21 @@ interface Props {
 }
 
 interface State {
-    searchText: string;
-    selectedIndex: number;
-    forceCreate?: boolean;
-
     fileTags: Tags;
 }
 
 const noTags = { namespace: 0, ids: new Set<number>() };
 
-type TagChoice = [number, string];
-
-function compareChoices([_1, a]: TagChoice, [_2, b]: TagChoice): number {
-    return a.localeCompare(b);
-}
-
-type TagChoiceRanked = [number, string, number];
-
-function compareChoicesRanked(
-    [_1, a, ar]: TagChoiceRanked,
-    [_2, b, br]: TagChoiceRanked,
-): number {
-    return ar - br || a.localeCompare(b);
-}
-
-function filterTags(ns: TagNamespace, searchText: string): Array<TagChoice> {
-    if (searchText) {
-        let result = new Array<TagChoiceRanked>();
-        const term = searchText.toLowerCase();
-        for (const entry of ns.names) {
-            const position = entry[1].indexOf(term);
-            if (position >= 0) {
-                entry.push(position);
-                result.push(entry as unknown as TagChoiceRanked);
-            }
-        }
-
-        return result.sort(compareChoicesRanked) as unknown as Array<TagChoice>;
-    }
-
-    return [...ns.names.entries()].sort(compareChoices);
-}
-
-function offsetToIndex(offset: number, limit: number): number {
-    const result = offset % limit;
-    return result < 0 ? result + limit : result;
-}
-
 export class Filter extends React.PureComponent<Props, State> {
-    private readonly focusTagRef: React.RefObject<HTMLLIElement>;
-
-    constructor(props: Props, context: any) {
-        super(props, context);
-
-        this.focusTagRef = React.createRef();
+    constructor(props: Props, ...others: unknown[]) {
+        super(props, ...others);
 
         this.state = {
-            searchText: "",
-            selectedIndex: 0,
             fileTags: noTags,
         };
 
-        this.handleSearchChange = this.handleSearchChange.bind(this);
-        this.handleSearchSubmit = this.handleSearchSubmit.bind(this);
-        this.handleSelectModeChange = this.handleSelectModeChange.bind(this);
-        this.handleTagCursorChange = this.handleTagCursorChange.bind(this);
+        this.handleToggleTag = this.handleToggleTag.bind(this);
+        this.handleCreateTag = this.handleCreateTag.bind(this);
     }
 
     componentDidMount(): void {
@@ -125,70 +88,23 @@ export class Filter extends React.PureComponent<Props, State> {
         if (file !== p.file || directory !== p.directory)
             if (file && directory)
                 this.loadFileTags(directory, file);
-
-        if (s.selectedIndex !== this.state.selectedIndex) {
-            const element = this.focusTagRef.current;
-            if (element) {
-                const parent = element.offsetParent;
-                if (parent) {
-                    const box = element.getBoundingClientRect();
-                    const parentBox = parent.getBoundingClientRect();
-                    if (box.bottom < parentBox.top || box.top > parentBox.bottom)
-                        element.scrollIntoView({behavior: "auto"});
-                }
-            }
-        }
     }
 
     render() {
         const {file} = this.props;
-        const {selectedIndex} = this.state;
-
-        const searchText = this.state.searchText.trim();
-        let tags = filterTags(this.props.tags, searchText);
-
-        const forceCreate = this.state.forceCreate && searchText;
-        const focusTagIndex = forceCreate ? -1 : offsetToIndex(selectedIndex, tags.length);
-
-        const tagStateLookup = file ? this.state.fileTags.ids : this.props.filteringTags;
+        const selected = file ? this.state.fileTags.ids : this.props.filteringTags;
+        const tags = convertTagMapToListMemoized(this.props);
 
         return <ul className="menu filter">
-            <li>
-                <FilterTagSearch
-                    value={this.state.searchText}
-                    onChange={this.handleSearchChange}
-                    onSubmit={this.handleSearchSubmit}
-                    onModeChange={this.handleSelectModeChange}
-                    onSelectChange={this.handleTagCursorChange} />
-            </li>
-            <li className="tag-picker">
-                <ul>
-                {searchText && (tags.length < 1 || forceCreate) && (
-                    <li className="focus"
-                        onClick={() => this.createTag(searchText)}
-                    >
-                        <Icon path={mdiTagPlusOutline} />
-                        <span>Create '{searchText}'</span>
-                    </li>
-                )}
-                {tags.length < 1
-                    ? !searchText && <li>No tags found</li>
-                    : tags.map((t, i) => (
-                    <li key={t[0]}
-                        ref={i === focusTagIndex ? this.focusTagRef : undefined}
-                        className={i === focusTagIndex ? "focus" : undefined}
-                        onClick={() => this.handleClickTag(t[0])}
-                    >
-                        <Icon path={(tagStateLookup.has(t[0]) ? mdiTag : mdiTagOutline)} />
-                        <span>{t[1]}</span>
-                    </li>
-                ))}
-                </ul>
-            </li>
+            <TagList
+                tags={tags}
+                selected={selected}
+                onToggleTag={this.handleToggleTag}
+                onCreateTag={this.handleCreateTag} />
         </ul>;
     }
 
-    private createTag(name: string): void {
+    handleCreateTag(name: string): void {
         const {directory, file} = this.props;
         const task = this.props.onCreateTag(name);
         if (file && directory)
@@ -201,14 +117,14 @@ export class Filter extends React.PureComponent<Props, State> {
                     };
 
                     fileTags.ids.add(id);
-                    this.setState({searchText: "", fileTags});
+                    this.setState({fileTags})
 
                     p.api.saveFileTagIDs(directory, file, fileTags, [id]);
                 }
             });
     }
 
-    private handleClickTag(id: number): void {
+    handleToggleTag(id: number): void {
         const {directory, file} = this.props;
         if (file && directory) {
             this.setState(
@@ -250,29 +166,5 @@ export class Filter extends React.PureComponent<Props, State> {
 
                 return {fileTags};
             }));
-    }
-
-    handleSearchChange(searchText: string): void {
-        this.setState({searchText, selectedIndex: 0});
-    }
-
-    handleSearchSubmit(): void {
-        const searchText = this.state.searchText.trim();
-        const tags = filterTags(this.props.tags, searchText);
-        if (searchText && (tags.length < 1 || this.state.forceCreate)) {
-            // No tags, how about a file that can be tagged?
-            this.createTag(searchText);
-        } else if (tags.length > 0) {
-            const t = offsetToIndex(this.state.selectedIndex, tags.length);
-            this.handleClickTag(tags[t][0]);
-        }
-    }
-
-    handleSelectModeChange(forceCreate: boolean): void {
-        this.setState({forceCreate});
-    }
-
-    handleTagCursorChange(offset: number): void {
-        this.setState(p => ({selectedIndex: (p.selectedIndex || 0) + offset}));
     }
 }

@@ -81,20 +81,25 @@ function getFiles(s: State): FilesView {
     return s.files || NoFiles;
 }
 
-function getOrderPref(s: State): FilesOrder {
+function getOrderPref(s: State): FilesOrder | number {
     return (getEffectivePreferencesMemoized(s) as Preferences).order;
 }
 
-function getFilters(s: State): FilterLookup {
-    return s.filters;
+function getOrderParam(s: State): string | undefined {
+    return (getEffectivePreferencesMemoized(s) as Preferences)?.orderParam;
 }
 
 const sortFilesMemoized = createSelector<
     State,
     FilesView,
     FilesOrder,
+    string | undefined,
     FilesView
->(getFiles, getOrderPref, sortFiles);
+>(getFiles, getOrderPref, getOrderParam, sortFiles);
+
+function getFilters(s: State): FilterLookup {
+    return s.filters;
+}
 
 const getFiltersMemoized = createSelector<
     State,
@@ -212,6 +217,7 @@ const triviallyBoundMethods = [
     "handleSelectFile",
     "handleSetColumns",
     "handleSetOrder",
+    "handleSetOrderParam",
     "handleSetThumbnailer",
     "handleThumbnailPathFormatChanged",
     "handleSetTransitionInterval",
@@ -351,7 +357,7 @@ export class ShellComponent extends React.Component<Props, State> {
                         overscan={2}
                         initialFocus={p.location.state?.fileIndex || 0}
                         files={files}
-                        thumbnailPath={preferences.thumbnail === "mapped" && preferences.thumbnailPath}
+                        thumbnailPath={preferences.thumbnail === "mapped" ? preferences.thumbnailPath : undefined}
                         onFileSelected={this.handleSelectFile} />}
                 />
             </Switch>
@@ -402,7 +408,9 @@ export class ShellComponent extends React.Component<Props, State> {
                         localPreferences={localPreferencesUsed}
                         onTogglePreferenceScope={this.handleToggleUseLocalPreference}
                         order={preferences.order}
-                        onSetOrder={this.handleSetOrder} />}
+                        orderParam={preferences.orderParam}
+                        onSetOrder={this.handleSetOrder}
+                        onSetOrderParam={this.handleSetOrderParam} />}
 
                     {menu === Menu.Shows && <Shows
                         localPreferences={localPreferencesUsed}
@@ -566,6 +574,10 @@ export class ShellComponent extends React.Component<Props, State> {
 
     handleSetOrder(order: FilesOrder): void {
         this.setPreference({order});
+    }
+
+    handleSetOrderParam(orderParam: string): void {
+        this.setPreference({orderParam});
     }
 
     handleSetThumbnailer(thumbnail: Thumbnailer): void {

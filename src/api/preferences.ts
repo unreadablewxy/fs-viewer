@@ -17,7 +17,7 @@ const defaultPreferences: Preferences = {
 export const rcFileName = ".viewerrc";
 
 const configEncoding = "utf8";
-const configRootPath = joinPath(remote.app.getPath("appData"), "fs-viewer");
+const configRootPath = joinPath(remote.app.getPath("appData"), "tbd-viewer");
 const configFilePath = joinPath(configRootPath, "config.json");
 
 async function writePreferences(

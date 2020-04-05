@@ -23,7 +23,7 @@ const noKeyDown = {
 
 type KeyStateNames = "shiftDown" | "controlDown" | "altDown";
 
-export class FilterTagSearch extends React.PureComponent<Props, State> {
+export class Input extends React.PureComponent<Props, State> {
     constructor(props: Props, context: any) {
         super(props, context);
 

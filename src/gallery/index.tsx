@@ -1,9 +1,11 @@
 import "./gallery.sass";
 import * as React from "react";
 
+import {Thumbnail} from "./thumbnail";
+
 interface Props {
-    files?: FilesView;
-    thumbnailPath?: string | false;
+    files: FilesView;
+    thumbnailPath?: string;
     initialFocus: number;
     columns: number;
     overscan: number;
@@ -14,6 +16,7 @@ interface State {
     firstVisible: number;
     lastVisible: number;
     underflow?: boolean;
+    animating?: boolean;
 }
 
 function thumbnailInnerSizeExpression(columns: number): string {
@@ -28,32 +31,6 @@ function thumbnailCalcSize(columns: number, viewportWidth: number): number {
     return (viewportWidth - 15) / columns;
 }
 
-const unrenderedPattern = /\{(\w*)\}/g;
-
-function getThumbnailUrl(
-    directory: string,
-    fileName: string,
-    format?: string | false
-): string {
-    if (format) {
-        return "file://" + format.replace(unrenderedPattern, n => {
-            switch (n.slice(1, n.length - 1)) {
-            case "":
-            case "0":
-            case "fileName":
-                return fileName;
-
-            case "directory":
-                return directory;
-
-            default:
-                return "";
-            }
-        });
-    }
-
-    return `thumb://${directory}/${fileName}`;
-}
 
 export class Gallery extends React.PureComponent<Props, State> {
     // The scrolling container
@@ -71,6 +48,8 @@ export class Gallery extends React.PureComponent<Props, State> {
     // The container of visible thumbnails. We could query a selector from
     // viewport, but this is the more "React"y thing to do
     private readonly thumbnailContainer: React.RefObject<HTMLUListElement>;
+
+    private animationTimer?: number;
 
     private catchupTimer?: number;
     private observer?: IntersectionObserver;
@@ -225,11 +204,28 @@ export class Gallery extends React.PureComponent<Props, State> {
 
         if (this.catchupTimer)
             this.clearCatchupTimer();
+
+        if (this.animationTimer)
+            clearTimeout(this.animationTimer);
     }
 
     public componentDidUpdate(prev: Props): void {
-        if (prev.columns !== this.props.columns)
+        if (prev.columns !== this.props.columns) {
             this.updateStyles();
+            this.beginAnimation();
+        }
+    }
+
+    private beginAnimation(): void {
+        if (this.animationTimer)
+            clearTimeout(this.animationTimer);
+        else
+            this.viewport.current?.classList.add("animate");
+
+        this.animationTimer = window.setTimeout(() => {
+            this.viewport.current?.classList.remove("animate");
+            delete this.animationTimer;
+        }, 210);
     }
 
     public render() {
@@ -252,14 +248,25 @@ export class Gallery extends React.PureComponent<Props, State> {
         if (files) {
             directory = files.path;
             const overscanCols = overscan * columns;
-            firstDrawn = Math.max(0, firstVisible - overscanCols);
+
+            firstDrawn = firstVisible - overscanCols;
+            if (firstDrawn < 0) {
+                firstDrawn = 0;
+            } else if (firstDrawn > files.names.length) {
+                firstDrawn = files.names.length;
+            }
+
             lastDrawn = lastVisible + overscanCols;
+            if (lastDrawn > files.names.length) {
+                lastDrawn = files.names.length;
+            }
+
             objectsCount = files.names.length;
             names = files.names.slice(firstDrawn, lastDrawn);
         } else {
             directory = "";
-            names = [];
             firstDrawn = lastDrawn = objectsCount = 0;
+            names = [];
         }
 
         const rowHeightExpression = thumbnailOuterSizeExpression(columns);
@@ -270,6 +277,12 @@ export class Gallery extends React.PureComponent<Props, State> {
             height: `calc((${rowHeightExpression})*${Math.ceil((objectsCount - lastDrawn) / columns)})`,
         };
 
+        const commonThumbnailProps = {
+            files,
+            pathFormat: thumbnailPath,
+            onClick: onFileSelected,
+        };
+
         return <section className="gallery" ref={this.viewport}>
             <div className="unrendered top"
                 ref={this.unrenderedTop}
@@ -278,14 +291,10 @@ export class Gallery extends React.PureComponent<Props, State> {
                 <div ref={this.overscanTop}></div>
             </div>
             <ul ref={this.thumbnailContainer}>
-                {names.map((fileName, i) => (
-                    <li className="thumbnail"
-                        key={fileName}
-                        onClick={() => onFileSelected(i + firstDrawn)}
-                    >
-                        <div>{fileName}</div>
-                        <img src={getThumbnailUrl(directory, fileName, thumbnailPath)} alt="" />
-                    </li>
+                {names.map((_, i) => (
+                    <Thumbnail key={i + firstDrawn}
+                        {...commonThumbnailProps}
+                        index={i + firstDrawn} />
                 ))}
             </ul>
             <div className="unrendered bot"

@@ -67,6 +67,11 @@ interface Preferences {
     order: number;
 
     /**
+     * A choice specific parameter to apply
+     */
+    orderParam?: string;
+
+    /**
      * The source of thumbnail files
      */
     thumbnail: Thumbnailer;

@@ -5,19 +5,25 @@ export enum FilesOrder {
     System = 0,
     Lexical,
     Numeric,
+    Tokenize,
+    Dimensional,
 }
 
 interface CompareCache {
     [k: string]: any;
 }
 
-type CompareFunction = (cache: CompareCache, a: string, b: string) => number;
+interface CompareFunction {
+    (cache: CompareCache, a: string, b: string): number;
+
+    init?(cache: CompareCache, param: string): void;
+}
 
 type CompareLookup = {
     [key in FilesOrder]?: CompareFunction;
 };
 
-function parseNumericName(fileName: string, radix: number) {
+function parseNumericName(fileName: string): number {
     const delimiterIndex = fileName.lastIndexOf(".");
     if (delimiterIndex > 0)
         fileName = fileName.slice(0, delimiterIndex);
@@ -28,19 +34,68 @@ function parseNumericName(fileName: string, radix: number) {
 const compareFunctions: CompareLookup = {
     [FilesOrder.Lexical]: (_, a, b) => a.localeCompare(b),
     [FilesOrder.Numeric]: (cache, a, b) => {
-        return (cache[a] || (cache[a] = parseNumericName(a, 10)))
-             - (cache[b] || (cache[b] = parseNumericName(b, 10)));
+        return (cache[a] || (cache[a] = parseNumericName(a)))
+             - (cache[b] || (cache[b] = parseNumericName(b)));
+    },
+    [FilesOrder.Tokenize]: (cache, a, b) => {
+        const token = cache["param://token"];
+        const av: Array<string> = cache[a] || (cache[a] = a.split(token));
+        const bv: Array<string> = cache[b] || (cache[b] = b.split(token));
+
+        for (let n = 0; n < av.length; ++n) {
+            if (n >= bv.length)
+                return 1;
+
+            const diff = av[n].localeCompare(bv[n]);
+            if (diff !== 0)
+                return diff;
+        }
+
+        return 0;
+    },
+    [FilesOrder.Dimensional]: (cache, a, b) => {
+        const token = cache["param://token"];
+        const av: Array<number> = cache[a] || (cache[a] = a.split(token).map(parseNumericName));
+        const bv: Array<number> = cache[b] || (cache[b] = b.split(token).map(parseNumericName));
+
+        for (let n = 0; n < av.length; ++n) {
+            if (n >= bv.length)
+                return 1;
+
+            const diff = av[n] - bv[n];
+            if (diff !== 0)
+                return diff;
+        }
+
+        return 0;
     },
 };
 
-export function sortFiles(files: FilesView, order: FilesOrder): FilesView {
-    const comparer = order && compareFunctions[order];
+(compareFunctions[FilesOrder.Tokenize] as CompareFunction).init =
+(compareFunctions[FilesOrder.Dimensional] as CompareFunction).init = (cache, param) => {
+    cache["param://token"] = param;
+};
+
+export function sortFiles(files: FilesView, order: number, pattern?: string): FilesView {
+    const unsignedOrder = Math.abs(order) as FilesOrder;
+    const comparer = order && compareFunctions[unsignedOrder];
     if (!comparer || files.names.length < 1)
         return files;
 
+    const cache = {};
+    if (pattern && comparer.init)
+        comparer.init(cache, pattern);
+
+    let sortedNames = files.names;
+    if (!comparer.init || pattern) {
+        sortedNames = sortedNames.slice(0).sort(comparer.bind(null, cache));
+        if (order < 0)
+            sortedNames = sortedNames.reverse();
+    }
+
     return {
         path: files.path,
-        names: files.names.slice(0).sort(comparer.bind(null, {})),
+        names: sortedNames,
     };
 }
 
@@ -48,8 +103,11 @@ interface Props {
     localPreferences: PreferenceNameSet;
     onTogglePreferenceScope(name: keyof Preferences): void;
 
-    order: FilesOrder;
-    onSetOrder(order: FilesOrder): void;
+    order: FilesOrder | number;
+    onSetOrder(order: FilesOrder | number): void;
+
+    orderParam?: string;
+    onSetOrderParam(value: string): void;
 }
 
 export class Ordering extends React.PureComponent<Props> {
@@ -61,19 +119,25 @@ export class Ordering extends React.PureComponent<Props> {
         this.toggleApproachScope = () => this.props.onTogglePreferenceScope("order");
 
         this.handleSetOrder = this.handleSetOrder.bind(this);
+        this.handleSetOrderParam = this.handleSetOrderParam.bind(this);
     }
     
     public render() {
-        const {localPreferences, order} = this.props;
+        const {localPreferences, order, orderParam} = this.props;
+        const unsignedOrder = Math.abs(order);
+        const requireSplitting = unsignedOrder === FilesOrder.Tokenize
+            || unsignedOrder === FilesOrder.Dimensional;
 
         return <ul className="menu ordering">
             <li>
                 <label>
-                    <div>Approach</div>
-                    <select value={order} onChange={this.handleSetOrder}>
+                    <div>File Ordering</div>
+                    <select value={unsignedOrder} onChange={this.handleSetOrder}>
                         <option value={FilesOrder.System}>Use system order</option>
                         <option value={FilesOrder.Lexical}>Compare names</option>
                         <option value={FilesOrder.Numeric}>Compare numeric names</option>
+                        <option value={FilesOrder.Tokenize}>Split names</option>
+                        <option value={FilesOrder.Dimensional}>Split numeric names</option>
                     </select>
                 </label>
                 <ScopeToggle
@@ -82,25 +146,29 @@ export class Ordering extends React.PureComponent<Props> {
             </li>
             <li>
                 <label>
-                    <div>Name format</div>
-                    <input placeholder="Expression" />
-                </label>
-                <ScopeToggle active={true} onClick={() => {}} />
-            </li>
-            <li>
-                <label>
                     <div>Direction</div>
-                    <select>
-                        <option value="asc">Ascending</option>
-                        <option value="des">Descending</option>
+                    <select value={order} onChange={this.handleSetOrder}>
+                        <option value={unsignedOrder}>Ascending</option>
+                        <option value={-unsignedOrder}>Descending</option>
                     </select>
                 </label>
-                <ScopeToggle active={true} onClick={() => {}} />
             </li>
+            {requireSplitting && <li>
+                <label>
+                    <div>Separator</div>
+                    <input placeholder="Text"
+                        value={orderParam}
+                        onChange={this.handleSetOrderParam} />
+                </label>
+            </li>}
         </ul>;
     }
 
     private handleSetOrder(ev: React.ChangeEvent<HTMLSelectElement>): void {
-        this.props.onSetOrder(parseInt(ev.currentTarget.value));
+        this.props.onSetOrder(parseInt(ev.target.value));
+    }
+
+    private handleSetOrderParam(ev: React.ChangeEvent<HTMLInputElement>): void {
+        this.props.onSetOrderParam(ev.target.value);
     }
 }
