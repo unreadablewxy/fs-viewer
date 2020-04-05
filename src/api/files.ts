@@ -78,7 +78,7 @@ function findTagNamespaceFile(directory: string): string | null {
         if (existsSync(tryPath))
             return tryPath;
         else
-            writeFileSync(tryPath, '');
+            writeFileSync(tryPath, "");
     }
 
     return null;
