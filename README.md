@@ -7,3 +7,7 @@ What is unique about this program?
 * Supports all popular animated image & short video clip formats (it is built on electron, so everything chrome supports just works)
 * Use your OS' built in thumbnailer for maximum speed, or hook up a custom thumbnailer and load thumbnails from wherever you like, even animated ones
 * Extensibility, everything is written in JS & CSS, moding has a very low entry requirement, tweak it to your heart's content
+
+<p align="center">
+<img src="https://s6.gifyu.com/images/demo.gif" alt="demo" />
+</p>
