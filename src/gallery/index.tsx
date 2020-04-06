@@ -20,15 +20,15 @@ interface State {
 }
 
 function thumbnailInnerSizeExpression(columns: number): string {
-    return `(100vw - ${15 + (columns - 1) * 4}px) / ${columns}`;
+    return `(100vw - ${18 + (columns - 1) * 4}px) / ${columns}`;
 }
 
 function thumbnailOuterSizeExpression(columns: number): string {
-    return `(100vw - 15px) / ${columns}`;
+    return `(100vw - 18px) / ${columns}`;
 }
 
 function thumbnailCalcSize(columns: number, viewportWidth: number): number {
-    return (viewportWidth - 15) / columns;
+    return (viewportWidth - 18) / columns;
 }
 
 

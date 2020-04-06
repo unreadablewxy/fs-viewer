@@ -1,36 +1,42 @@
-const webpack = require("webpack");
-const path = require("path");
-const HtmlWebPackPlugin = require("html-webpack-plugin");
-const TerserJSPlugin = require("terser-webpack-plugin");
-const MiniCssExtractPlugin = require("mini-css-extract-plugin");
-const TSLintPlugin = require("tslint-webpack-plugin");
+"use strict";
+
 const os = require("os");
-const LicenseWebpackPlugin = require('license-webpack-plugin').LicenseWebpackPlugin;
+const path = require("path");
 
-function build(pathOut, outFileName, target, env, argv) {
+const HtmlWebPackPlugin = require("html-webpack-plugin");
+const LicenseWebpackPlugin = require("license-webpack-plugin").LicenseWebpackPlugin;
+const MiniCssExtractPlugin = require("mini-css-extract-plugin");
+const TerserJSPlugin = require("terser-webpack-plugin");
+const TSLintPlugin = require("tslint-webpack-plugin");
+
+const platform = os.platform();
+
+function buildConfig(env, argv) {
     var result = {
-        target,
-
-        entry: this.entrypoint,
-
-        output: {
-            path: pathOut,
-            filename: outFileName,
-        },
-
         resolve: {
-            extensions: this.extensions,
+            extensions: [
+                `.${platform}.ts`,
+                `.${platform}.js`,
+                ".ts",
+                ".js",
+            ],
         },
-
-        devtool: this.devtool,
 
         module: {
-            rules: this.rules,
+            rules: [
+                {
+                    test: /\.(j|t)s(x?)$/,
+                    exclude: /node_modules/,
+                    loader: "babel-loader",
+                },
+            ],
         },
 
-        plugins: this.plugins.concat(new TSLintPlugin({
-            files: ['./src/**/*.ts']
-        })),
+        plugins: [
+            new TSLintPlugin({
+                files: ["./src/**/*.ts"],
+            }),
+        ],
     };
 
     if (argv.mode === "production") {
@@ -43,76 +49,70 @@ function build(pathOut, outFileName, target, env, argv) {
                     parallel: true,
                     sourceMap: false,
                     terserOptions: {},
-                    exclude: /\.(sa|c)ss$/,
+                    exclude: /\.(sa|sc|c)ss$/,
                 }),
             ],
         };
 
-        result.plugins = result.plugins.concat(
+        result.plugins.push(
             new LicenseWebpackPlugin({
-                perChunkOutput: true,
-                addBanner: true,
-                outputFilename: "LICENSES.txt",
+                perChunkOutput: false,
+                addBanner: false,
+                outputFilename: "ATTRIBUTION.txt",
                 preferredLicenseTypes: ["MIT", "ISC"]
             }));
     } else {
-        result.output.filename = result.output.filename.replace(/\[hash\]/g, "dev");
+        result.devtool = "source-map";
     }
+
+    this.directives.forEach(function (d) {
+        d.call(result, argv);
+    });
 
     return result;
 }
 
-const platform = os.platform();
+const methods = {
+    add: function(fn) {
+        this.directives.push(fn);
+        return this;
+    },
 
-const defaults = {
-    devtool: "source-map",
-
-    extensions: [`.${platform}.ts`, `.${platform}.js`, ".ts", ".js"],
-
-    plugins: [],
-
-    rules: [
-        {
-            test: /\.(j|t)s(x?)$/,
-            exclude: /node_modules/,
-            loader: "babel-loader",
-        },
-    ],
-
-    withExtensions: function withExtensions(extensions) {
-        var result = Object.create(this);
-        result.extensions = this.extensions.concat(extensions);
-        return result;
+    withExtension: function withExtensions(...extensions) {
+        return this.add(function () {
+            this.resolve.extensions.push(...extensions);
+        });
     },
 
     withPlugin: function withPlugin(plugin) {
-        var result = Object.create(this);
-        result.plugins = this.plugins.concat(plugin);
-        return result;
+        return this.add(function () {
+            this.plugins.push(plugin);
+        });
     },
 
     withRule: function withRule(rule) {
-        var result = Object.create(this);
-        result.rules = this.rules.concat(rule);
-        return result;
+        return this.add(function () {
+            this.module.rules.push(rule);
+        });
     },
 
-    withReact: function() {
-        return this.withExtensions([".jsx", ".tsx"]);
+    withReact: function withReact() {
+        return this.withExtension(".jsx", ".tsx");
     },
 
     withCss: function withCss() {
         return this.withPlugin(new MiniCssExtractPlugin({
-            filename: "[name].css",
-            chunkFilename: "[id].css",
-        })).withRule({
-            test: /\.sass$/,
-            use: [
-                MiniCssExtractPlugin.loader,
-                "css-loader",
-                "sass-loader",
-            ],
-        });
+                filename: "[name].css",
+                chunkFilename: "[id].css",
+            }))
+            .withRule({
+                test: /\.sass$/,
+                use: [
+                    MiniCssExtractPlugin.loader,
+                    "css-loader",
+                    "sass-loader",
+                ],
+            });
     },
 
     withHtml: function withHtml(template, filename) {
@@ -120,37 +120,61 @@ const defaults = {
     },
 
     withNativeModules: function withNativeModules() {
-        return this.withRule({
-            test: /\.node$/,
-            use: 'node-loader'
-        }).withExtensions([".node"]);
+        return this.withExtension(".node")
+            .add(function ({mode}) {
+                this.module.rules.push({
+                    test: /\.node$/,
+                    loader: "native-ext-loader",
+                    options: {
+                        rewritePath: mode === "production"
+                            ? "resources/app.asar/build"
+                            : "build",
+                    },
+                });
+            });
     },
 
-    to: function to(pathOut, outFileName, target) {
-        return build.bind(this, pathOut, outFileName, target || "web");
+    to: function to(target, path, outFileName, debugOutFileName) {
+        this.add(function ({mode}) {
+            this.target = target;
+
+            const filename = !debugOutFileName || mode === "production"
+                ? outFileName
+                : debugOutFileName;
+
+            this.output = {path, filename};
+        });
+
+        return buildConfig.bind(this);
     },
 };
 
 function from(entrypoint) {
-    var result = Object.create(defaults);
-    result.entrypoint = entrypoint;
+    var result = Object.create(methods);
+
+    result.directives = [
+        function () {
+            this.entry = entrypoint;
+        },
+    ];
+
     return result;
 }
 
 const pathBuild = path.resolve(__dirname, "build");
 
-const uiConfig = from("./src/index.tsx")
-    .withCss()
-    .withReact()
-    .withHtml("./src/index.html", "index.html")
-    .to(pathBuild, "[chunkhash].js", "electron-renderer");
+module.exports = [
+    from("./src/index.tsx")
+        .withCss()
+        .withReact()
+        .withHtml("./src/index.html", "index.html")
+        .to("electron-renderer", pathBuild, "[chunkhash].js", "dev.js"),
 
-const apiConfig = from("./src/api/index.ts")
-    .withNativeModules()
-    .to(pathBuild, "api.js", "electron-preload");
+    from("./src/api/index.ts")
+        .withNativeModules()
+        .to("electron-preload", pathBuild, "api.js"),
 
-const mainConfig = from("./src/main/index.ts")
-    .withNativeModules()
-    .to(__dirname, "index.js", "electron-main");
-
-module.exports = [uiConfig, apiConfig, mainConfig];
+    from("./src/main/index.ts")
+        .withNativeModules()
+        .to("electron-main", pathBuild, "index.js"),
+];
