@@ -22,6 +22,7 @@ function createWindow(): void {
         height: 600,
         minWidth: 600,
         minHeight: 400,
+        backgroundColor: "#000000",
         webPreferences: {
             preload: path.join(app.getAppPath(), "build/api.js"),
         },

@@ -11,6 +11,7 @@ const defaultPreferences: Preferences = {
     columns: 6,
     order: 0,
     thumbnail: "system",
+    thumbnailSizing: "cover",
     preload: 1,
 };
 

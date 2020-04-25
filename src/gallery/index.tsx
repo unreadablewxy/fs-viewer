@@ -1,11 +1,14 @@
 import "./gallery.sass";
 import * as React from "react";
 
+import {ScrollPane} from "../scroll-pane";
+
 import {Thumbnail} from "./thumbnail";
 
 interface Props {
     files: FilesView;
     thumbnailPath?: string;
+    thumbnailScaling: ThumbnailSizing;
     initialFocus: number;
     columns: number;
     overscan: number;
@@ -20,17 +23,16 @@ interface State {
 }
 
 function thumbnailInnerSizeExpression(columns: number): string {
-    return `(100vw - ${18 + (columns - 1) * 4}px) / ${columns}`;
+    return `(100vw - ${(columns - 1) * 4}px) / ${columns}`;
 }
 
 function thumbnailOuterSizeExpression(columns: number): string {
-    return `(100vw - 18px) / ${columns}`;
+    return `100vw / ${columns}`;
 }
 
 function thumbnailCalcSize(columns: number, viewportWidth: number): number {
-    return (viewportWidth - 18) / columns;
+    return viewportWidth / columns;
 }
-
 
 export class Gallery extends React.PureComponent<Props, State> {
     // The scrolling container
@@ -100,6 +102,11 @@ export class Gallery extends React.PureComponent<Props, State> {
         entries: IntersectionObserverEntry[],
         observer: IntersectionObserver): void
     {
+        const unrenderedTop = this.unrenderedTop.current;
+        const unrenderedBottom = this.unrenderedBottom.current;
+        const overscanTop = this.overscanTop.current;
+        const overscanBottom = this.overscanBottom.current;
+
         let needUpdate = false;
         let underflow = false;
         for (let n = entries.length; n --> 0;) {
@@ -107,23 +114,22 @@ export class Gallery extends React.PureComponent<Props, State> {
             if (!isIntersecting)
                 continue;
 
-            if (target === this.unrenderedTop.current ||
-                target === this.unrenderedBottom.current)
-            {
+            switch (target) {
+            case unrenderedTop:
+            case unrenderedBottom:
+                underflow = target.clientHeight > 0;
+                n = 0;
+
+            case overscanTop:
+            case overscanBottom:
                 needUpdate = true;
-                underflow = true;
                 break;
-            } else if (target === this.overscanTop.current ||
-                target === this.overscanBottom.current)
-            {
-                needUpdate = true;
             }
         }
 
         this.setState({underflow});
-        if (underflow && this.props.files && !this.catchupTimer) {
+        if (underflow && !this.catchupTimer)
             this.catchupTimer = window.setInterval(() => this.onCatchup(), 200);
-        }
 
         if (needUpdate)
             this.setState(() => this.getVisibleRange());
@@ -214,6 +220,9 @@ export class Gallery extends React.PureComponent<Props, State> {
             this.updateStyles();
             this.beginAnimation();
         }
+
+        if (prev.files !== this.props.files)
+            this.onCatchup();
     }
 
     private beginAnimation(): void {
@@ -235,18 +244,17 @@ export class Gallery extends React.PureComponent<Props, State> {
             overscan,
             onFileSelected,
             thumbnailPath,
+            thumbnailScaling,
         } = this.props;
 
         const {firstVisible, lastVisible} = this.state;
 
-        let directory: string;
         let names: string[];
         let firstDrawn: number;
         let lastDrawn: number;
         let objectsCount: number;
 
         if (files) {
-            directory = files.path;
             const overscanCols = overscan * columns;
 
             firstDrawn = firstVisible - overscanCols;
@@ -264,7 +272,6 @@ export class Gallery extends React.PureComponent<Props, State> {
             objectsCount = files.names.length;
             names = files.names.slice(firstDrawn, lastDrawn);
         } else {
-            directory = "";
             firstDrawn = lastDrawn = objectsCount = 0;
             names = [];
         }
@@ -283,26 +290,28 @@ export class Gallery extends React.PureComponent<Props, State> {
             onClick: onFileSelected,
         };
 
-        return <section className="gallery" ref={this.viewport}>
-            <div className="unrendered top"
-                ref={this.unrenderedTop}
-                style={unrenderedTopStyle}
-            >
-                <div ref={this.overscanTop}></div>
-            </div>
-            <ul ref={this.thumbnailContainer}>
-                {names.map((_, i) => (
-                    <Thumbnail key={i + firstDrawn}
-                        {...commonThumbnailProps}
-                        index={i + firstDrawn} />
-                ))}
-            </ul>
-            <div className="unrendered bot"
-                ref={this.unrenderedBottom}
-                style={unrenderedBottomStyle}
-            >
-                <div ref={this.overscanBottom}></div>
-            </div>
+        return <section className={`gallery scale-${thumbnailScaling}`}>
+            <ScrollPane contentRef={this.viewport}>
+                <div className="unrendered top"
+                    ref={this.unrenderedTop}
+                    style={unrenderedTopStyle}
+                >
+                    <div ref={this.overscanTop}></div>
+                </div>
+                <ul ref={this.thumbnailContainer}>
+                    {names.map((_, i) => (
+                        <Thumbnail key={i + firstDrawn}
+                            {...commonThumbnailProps}
+                            index={i + firstDrawn} />
+                    ))}
+                </ul>
+                <div className="unrendered bot"
+                    ref={this.unrenderedBottom}
+                    style={unrenderedBottomStyle}
+                >
+                    <div ref={this.overscanBottom}></div>
+                </div>
+            </ScrollPane>
         </section>;
     }
 }

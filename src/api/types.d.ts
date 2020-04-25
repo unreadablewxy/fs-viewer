@@ -55,6 +55,8 @@ interface OpenDirectoryResult {
 
 type Thumbnailer = "none" | "system" | "mapped";
 
+type ThumbnailSizing = "cover" | "full";
+
 interface Preferences {
     /**
      * Number of columns in grid view
@@ -80,6 +82,11 @@ interface Preferences {
      * (if thumbnail is set) the format of the thumbnail path
      */
     thumbnailPath?: string;
+
+    /**
+     * How thumbnail images are sized
+     */
+    thumbnailSizing: ThumbnailSizing;
 
     /**
      * How many files to preload in both directions in stage mode

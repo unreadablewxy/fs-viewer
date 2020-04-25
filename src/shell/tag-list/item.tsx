@@ -6,28 +6,60 @@ import {
 } from "@mdi/js";
 
 interface Props {
+    ref?: React.Ref<any>,
     id: number,
-    children: React.ReactNode,
+    index: number,
+    children: string,
     focused?: boolean,
     active?: boolean,
+    renaming: string | null,
     onClick: (id: number) => void,
-    ref?: React.Ref<any>,
+    onContextMenu: (index: number, ev: React.MouseEvent) => void,
+    onRename: (value: React.ChangeEvent<HTMLInputElement>) => void,
+    onRenameEnd: (submit: boolean) => void,
 }
 
-function renderItem({
-    id,
-    children,
-    focused,
-    active,
-    onClick,
-}: Props, ref?: React.Ref<any>) {
+function renderInput({renaming, onRename, onRenameEnd}: Props) {
+    return <input type="text"
+        size={1}
+        value={renaming || ""}
+        onChange={onRename}
+        onBlur={() => onRenameEnd(false)}
+        onKeyDown={ev => {
+            switch (ev.key) {
+            case "Enter": onRenameEnd(true); break;
+            case "Escape": onRenameEnd(false); break;
+            }
+            ev.stopPropagation();
+        }}
+        autoFocus />
+}
+
+function renderItem(props: Props, ref?: React.Ref<any>) {
+    const {id, index, children, focused, active, renaming, onClick, onContextMenu} = props;
+
+    let className = focused ? "focus" : "";
+    let clickHandler = undefined;
+    let menuHandler = undefined;
+    let content: React.ReactNode;
+
+    if (renaming === null) {
+        clickHandler = onClick.bind(null, id);
+        menuHandler = onContextMenu.bind(null, index);
+        content = <span>{children}</span>;
+    } else {
+        className += " editing";
+        content = renderInput(props)
+    }
+
     return <li
         ref={ref}
-        className={focused ? "focus" : undefined}
-        onClick={onClick.bind(null, id)}
+        className={className || undefined}
+        onClick={clickHandler}
+        onContextMenu={menuHandler}
     >
         <Icon path={active ? mdiTag : mdiTagOutline} />
-        <span>{children}</span>
+        {content}
     </li>;
 }
 

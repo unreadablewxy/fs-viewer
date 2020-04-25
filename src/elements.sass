@@ -36,11 +36,10 @@ input[type=range]
         width: 1em
         height: 2em
         background-color: $color-clickable-hover
-        cursor: pointer
 
 select > option
     color: $color-text
-    background-color: $color-panel
+    background-color: rgba-to-rgb($color-panel-focus, $color-background)
 
 label > div:first-child
     font-size: $size-font-small

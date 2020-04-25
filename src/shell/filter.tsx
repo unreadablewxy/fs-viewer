@@ -34,29 +34,37 @@ function compareTags(a: Tag, b: Tag): number {
     return a.label.localeCompare(b.label);
 }
 
-function convertTagMapToList(lookup: Map<number, string>): Tag[] {
+function convertTagMapToList(lookup: Map<number, string>, file: string | void): Tag[] {
     let result = new Array<Tag>(lookup.size);
     let n = 0;
     for (const [id, label] of lookup)
         result[n++] = {id, label};
 
-    return result.sort(compareTags);
+    result.sort(compareTags);
+
+    if (!file)
+        result.unshift({id: -1, label: "(Untagged)"});
+
+    return result;
 }
 
 const convertTagMapToListMemoized = createSelector<
     Props,
     Map<number, string>,
+    string | void,
     Tag[]
->(props => props.tags.names, convertTagMapToList);
+>(props => props.tags.names, props => props.file, convertTagMapToList);
 
 interface Props {
     api: API;
-    directory?: string;
+    directory: string;
     file?: string;
     tags: TagNamespace;
     filteringTags: Set<number>;
     onToggleTag: (tag: TagID) => void;
     onCreateTag: (tag: string) => Promise<TagID>;
+    onRenameTag: (id: TagID, newName: string) => void;
+    onDeleteTag: (tag: TagID) => Promise<void>;
 }
 
 interface State {
@@ -75,6 +83,7 @@ export class Filter extends React.PureComponent<Props, State> {
 
         this.handleToggleTag = this.handleToggleTag.bind(this);
         this.handleCreateTag = this.handleCreateTag.bind(this);
+        this.handleClearTagCache = this.handleClearTagCache.bind(this);
     }
 
     componentDidMount(): void {
@@ -100,8 +109,16 @@ export class Filter extends React.PureComponent<Props, State> {
                 tags={tags}
                 selected={selected}
                 onToggleTag={this.handleToggleTag}
-                onCreateTag={this.handleCreateTag} />
+                onCreateTag={this.handleCreateTag}
+                onRenameTag={this.props.onRenameTag}
+                onDeleteTag={this.props.onDeleteTag}
+                onClearTagCache={this.handleClearTagCache}
+            />
         </ul>;
+    }
+
+    handleClearTagCache(tag: TagID): void {
+        this.props.api.clearTagIndex(this.props.directory, tag);
     }
 
     handleCreateTag(name: string): void {
@@ -124,7 +141,7 @@ export class Filter extends React.PureComponent<Props, State> {
             });
     }
 
-    handleToggleTag(id: number): void {
+    handleToggleTag(id: TagID): void {
         const {directory, file} = this.props;
         if (file && directory) {
             this.setState(

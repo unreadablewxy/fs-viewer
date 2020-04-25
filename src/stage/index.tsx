@@ -6,6 +6,8 @@ interface Props {
     files: FilesView;
     fileIndex: number;
     preload: number;
+    transitionInterval: number;
+    focusTime: number;
     onSetFileIndex: (index: number) => void;
 }
 
@@ -25,21 +27,35 @@ function loadImage(files: FilesView, index: number): HTMLImageElement {
 export class Stage extends React.PureComponent<Props, State> {
     preloadedImages: Array<HTMLImageElement> = [];
 
+    private container: React.RefObject<HTMLElement>;
+
     private probeRequestController?: AbortController;
+
+    private transitionTimer?: number;
 
     constructor(props: Props, context: any) {
         super(props, context);
 
         this.state = {};
 
+        this.container = React.createRef<HTMLElement>();
+
         this.handleDisableButtons = this.handleDisableButtons.bind(this);
         this.handleImageError = this.handleImageError.bind(this);
+        this.handleKeyDownShell = this.handleKeyDownShell.bind(this);
         this.navigateNext = this.navigateNext.bind(this);
         this.navigatePrev = this.navigatePrev.bind(this);
+
+        this.componentDidMount = this.ensureFocus.bind(this);
     }
 
-    public componentDidUpdate(p: Props): void {
-        let {fileIndex, files, preload} = this.props;
+    private ensureFocus(): void {
+        if (this.container.current)
+            this.container.current.focus();
+    }
+
+    componentDidUpdate(p: Props): void {
+        let {fileIndex, files, preload, transitionInterval} = this.props;
         if (p.fileIndex != fileIndex) {
             if (this.probeRequestController) {
                 this.probeRequestController.abort();
@@ -62,6 +78,21 @@ export class Stage extends React.PureComponent<Props, State> {
                 this.preloadedImages = preloaded;
             }
         }
+
+        if (p.transitionInterval !== transitionInterval) {
+            if (this.transitionTimer)
+                clearInterval(this.transitionTimer);
+
+            if (transitionInterval === 0) {
+                delete this.transitionTimer;
+            } else {
+                this.transitionTimer = window.setInterval(
+                    () => this.navigateNext(),
+                    transitionInterval);
+            }
+        }
+
+        this.ensureFocus();
     }
 
     render() {
@@ -79,7 +110,11 @@ export class Stage extends React.PureComponent<Props, State> {
 
         const fileUrl = `file://${files.path}/${fileName}`;
 
-        return <section className="stage">
+        return <section className="stage"
+            tabIndex={0}
+            ref={this.container}
+            onKeyDown={this.handleKeyDownShell}
+        >
             <Center key={fileName} onDrag={this.handleDisableButtons}>
                 {isVideo
                     ? <video src={fileUrl} controls />
@@ -128,5 +163,17 @@ export class Stage extends React.PureComponent<Props, State> {
             }
         })
         .finally(() => delete this.probeRequestController);
+    }
+
+    handleKeyDownShell(ev: React.KeyboardEvent): void {
+        switch (ev.key) {
+        case "ArrowRight":
+            this.navigateNext();
+            break;
+
+        case "ArrowLeft":
+            this.navigatePrev();
+            break;
+        }
     }
 }

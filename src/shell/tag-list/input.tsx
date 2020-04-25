@@ -7,6 +7,11 @@ interface Props {
     onSubmit: (toggle: boolean) => void;
     onSelectChange: (offset: number) => void;
     onModeChange: (forceCreate: boolean) => void;
+    onRename: () => void;
+}
+
+interface InternalProps extends Props {
+    forwardedRef: null | React.Ref<HTMLInputElement>;
 }
 
 interface State {
@@ -23,8 +28,8 @@ const noKeyDown = {
 
 type KeyStateNames = "shiftDown" | "controlDown" | "altDown";
 
-export class Input extends React.PureComponent<Props, State> {
-    constructor(props: Props, context: any) {
+class InputComponent extends React.PureComponent<InternalProps, State> {
+    constructor(props: InternalProps, context: any) {
         super(props, context);
 
         this.state = {};
@@ -36,17 +41,20 @@ export class Input extends React.PureComponent<Props, State> {
     }
 
     render() {
-        const {value} = this.props;
+        const {forwardedRef, value} = this.props;
 
         return <label>
             <div>Search</div>
             <input type="search"
+                size={1}
+                ref={forwardedRef}
                 placeholder="Tag name"
                 value={value}
                 onChange={this.handleChange}
                 onKeyDown={this.handleKeyDown}
                 onKeyUp={this.handleKeyUp}
-                onBlur={this.handleBlur} />
+                onBlur={this.handleBlur}
+                autoFocus />
         </label>;
     }
 
@@ -84,6 +92,10 @@ export class Input extends React.PureComponent<Props, State> {
         case "ArrowDown":
             this.props.onSelectChange(1);
             break;
+
+        case "F2":
+            this.props.onRename();
+            break;
         }
     }
 
@@ -98,3 +110,6 @@ export class Input extends React.PureComponent<Props, State> {
         }
     }
 }
+
+export const Input = React.forwardRef<HTMLInputElement, Props>(
+    (props, ref) => <InputComponent {...props} forwardedRef={ref} />);

@@ -1,6 +1,37 @@
 @import '../../global'
 
+$size-icon: 1em
+$size-icon-spacing: $space-narrow
+$size-icon-offset: 1em + $size-icon-spacing
+
 .tag-picker
     padding-top: 0
     max-height: 80vh
-    overflow: auto
+
+    > .scroll-pane
+        height: auto
+
+    li
+        display: flex
+        flex-direction: row
+        align-items: center
+        border: 1px solid transparent
+        padding: $space-contextual-item-vertical $space-contextual-item-sides
+
+        &:hover, &.focus
+            background-color: $color-list-hover
+
+        &.editing
+            border: 1px solid $color-input-outline-focus
+
+    svg
+        @include svg-icon($size-icon)
+        margin-right: $size-icon-spacing
+
+    input
+        flex: 1
+        height: auto
+        width: auto
+        padding: 0
+        border: 0
+        background-color: transparent

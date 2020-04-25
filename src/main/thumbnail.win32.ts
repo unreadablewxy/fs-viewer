@@ -14,7 +14,7 @@ function handleThumbnailRequest(request: Request, complete: ResponseCallback): v
         width: 256,
         height: 256,
         flags: flags.BiggerSizeOk,
-    }).then(complete, e => complete(500));
+    }).then(complete, () => complete(500));
 }
 
 export function registerThumbnailProtocol(): void {

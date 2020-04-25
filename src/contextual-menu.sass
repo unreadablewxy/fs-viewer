@@ -1,0 +1,29 @@
+@import './global.sass'
+@import './menu.sass'
+
+.menu.contextual
+    display: inline-block
+    position: fixed
+    min-width: 15em
+    max-width: 30em
+    border-radius: 0 0 $space-narrow/2 $space-narrow/2
+    transition: box-shadow $time-resize-animation * 2, background-color $time-resize-animation
+    box-shadow: 0 0 $space-default $color-panel-shadow
+    background-color: $color-panel-opaque
+    backdrop-filter: blur(0.2em)
+
+    > li
+        padding-top: $space-narrow
+
+        > :first-child
+            flex-grow: 0
+
+        > :last-child
+            flex-grow: 1
+
+    .divider
+        height: 1px
+        padding: 0
+        margin: $space-narrow 0
+        border: 0px none
+        background-color: $color-text

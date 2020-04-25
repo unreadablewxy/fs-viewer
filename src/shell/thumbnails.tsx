@@ -13,20 +13,26 @@ interface Props {
 
     thumbnailPathFormat?: string;
     onThumbnailPathFormatChanged(format: string): void;
+
+    thumbnailSizing: string;
+    onThumbnailSizingChanged(sizing: ThumbnailSizing): void;
 }
 
 export class Thumbnails extends React.PureComponent<Props> {
     private readonly toggleColumnsScope: () => void;
     private readonly toggleThumbnailerScope: () => void;
+    private readonly toggleThumbnailScalingScope: () => void;
 
     constructor(props: Props, context: any) {
         super(props, context);
 
         this.toggleColumnsScope = () => this.props.onTogglePreferenceScope("columns");
         this.toggleThumbnailerScope = () => this.props.onTogglePreferenceScope("thumbnail");
+        this.toggleThumbnailScalingScope = () => this.props.onTogglePreferenceScope("thumbnailSizing");
 
         this.handleColumnsChange = this.handleColumnsChange.bind(this);
         this.handleThumbnailPathFormatChanged = this.handleThumbnailPathFormatChanged.bind(this);
+        this.handleThumbnailSizingChanged = this.handleThumbnailSizingChanged.bind(this);
         this.handleThumbnailerChange = this.handleThumbnailerChange.bind(this);
     }
 
@@ -36,6 +42,7 @@ export class Thumbnails extends React.PureComponent<Props> {
             columns,
             thumbnailer,
             thumbnailPathFormat,
+            thumbnailSizing,
         } = this.props;
 
         return <ul className="menu thumbnails">
@@ -74,6 +81,21 @@ export class Thumbnails extends React.PureComponent<Props> {
                         onChange={this.handleThumbnailPathFormatChanged} />
                 </label>
             </li>}
+            <li>
+                <label>
+                    <div>Thumbnail Sizing</div>
+                    <select
+                        value={thumbnailSizing}
+                        onChange={this.handleThumbnailSizingChanged}
+                    >
+                        <option value="cover">Cover</option>
+                        <option value="full">Show Full</option>
+                    </select>
+                </label>
+                <ScopeToggle
+                    active={"thumbnailSizing" in localPreferences}
+                    onClick={this.toggleThumbnailScalingScope} />
+            </li>
         </ul>;
     }
 
@@ -91,5 +113,11 @@ export class Thumbnails extends React.PureComponent<Props> {
         ev: React.ChangeEvent<HTMLSelectElement>
     ): void {
         this.props.onThumbnailerChanged(ev.target.value as Thumbnailer);
+    }
+
+    private handleThumbnailSizingChanged(
+        ev: React.ChangeEvent<HTMLSelectElement>
+    ): void {
+        this.props.onThumbnailSizingChanged(ev.target.value as ThumbnailSizing);
     }
 }

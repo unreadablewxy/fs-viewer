@@ -5,8 +5,10 @@ import {
     readdir,
     existsSync,
     mkdirSync,
+    unlink,
+    rmdir,
 } from "fs";
-import {dirname, join as joinPath} from "path";
+import {dirname, join as joinPath, normalize} from "path";
 import readline from "readline";
 import {getAttr, setAttr, removeAttr} from "./attrs";
 import {promisify} from "util";
@@ -15,10 +17,17 @@ import {Cancellation} from "./error";
 import {loadPreferenceFile, rcFileName as preferencesFile} from "./preferences";
 
 const readdirAsync = promisify(readdir);
+const unlinkAsync = promisify(unlink);
+const rmdirAsync = promisify(rmdir);
 
 const tagsIndexDirectory = ".tags";
 
 const tagsNSFileHeader = "#tags-namespace";
+
+function assertValidTagID(id: number) {
+    if (id < 1)
+        throw Error(`Invalid tag ID ${id}`);
+}
 
 function loadTagNamespace(path: string): Promise<TagNamespace> {
     return new Promise((resolve, reject) => {
@@ -70,13 +79,18 @@ function loadTagNamespace(path: string): Promise<TagNamespace> {
 const tagsNSFile = ".tagnames";
 
 function findTagNamespaceFile(directory: string): string | null {
-    const homePath = remote.app.getPath("home");
+    const homePath = normalize(remote.app.getPath("home"));
 
-    for (let p = directory; p !== homePath; p = dirname(p)) {
+    let p = normalize(directory);
+    do {
         const tryPath = joinPath(p, tagsNSFile);
         if (existsSync(tryPath))
             return tryPath;
-    }
+
+        const parent = dirname(p);
+        if (parent === p) break;
+        p = parent;
+    } while (p !== homePath);
 
     return null;
 }
@@ -180,24 +194,23 @@ async function rebuildTagIndex(
     directory: string,
     id: TagID,
 ): Promise<Set<string>> {
-    return readdirAsync(directory, {withFileTypes: true}).then(async files => {
-        const tasks = new Array<Promise<Tags | null>>(files.length);
-        for (let n = 0; n < files.length; ++n)
-            tasks[n] = loadFileTagIDs(directory, files[n].name);
+    const files = await readdirAsync(directory, {withFileTypes: true});
+    const tasks = new Array<Promise<Tags | null>>(files.length);
+    for (let n = 0; n < files.length; ++n)
+        tasks[n] = loadFileTagIDs(directory, files[n].name);
 
-        const index = new Set<string>();
-        const fileTagIds = await Promise.all(tasks);
-        for (let n = 0; n < files.length; ++n) {
-            const tags = fileTagIds[n];
-            if (tags && tags.ids.has(id))
-                index.add(files[n].name);
-        }
+    const index = new Set<string>();
+    const fileTagIds = await Promise.all(tasks);
+    for (let n = 0; n < files.length; ++n) {
+        const tags = fileTagIds[n];
+        if (tags && tags.ids.has(id))
+            index.add(files[n].name);
+    }
 
-        return index;
-    });
+    return index;
 }
 
-async function writeTagsIndex(
+function writeTagsIndex(
     filePath: string,
     fileNames: Iterable<string>,
     flags: string = "w",
@@ -218,6 +231,8 @@ async function writeTagsIndex(
 }
 
 export function loadTagsIndex(directory: string, id: TagID): Promise<Set<string>> {
+    assertValidTagID(id);
+
     return new Promise((resolve, reject) => {
         const filePath = getTagsIndexPath(directory, id);
         if (existsSync(filePath)) {
@@ -254,6 +269,35 @@ export function loadTagsIndex(directory: string, id: TagID): Promise<Set<string>
                 reject);
         }
     });
+}
+
+async function checkFileUntagged(path: string): Promise<boolean> {
+    try {
+        const data = await getAttr(path, tagsAttribute);
+        return data.length < 1;
+    } catch (e) {
+        // No data or not found both means no tags
+        if (e.code === "ENODATA" || e.code === "ENOENT")
+            return true;
+
+        throw e;
+    }
+}
+
+export async function findUntaggedFiles(directory: string): Promise<Set<string>> {
+    const files = await readdirAsync(directory, {withFileTypes: true});
+    const tasks = new Array<Promise<boolean>>(files.length);
+    for (let n = 0; n < files.length; ++n)
+        tasks[n] = checkFileUntagged(joinPath(directory, files[n].name));
+
+    const index = new Set<string>();
+    const fileHasNoTags = await Promise.all(tasks);
+    for (let n = files.length; n --> 0;) {
+        if (fileHasNoTags[n])
+            index.add(files[n].name);
+    }
+
+    return index;
 }
 
 const tagsAttribute = "user.tagids";
@@ -295,7 +339,7 @@ export function saveFileTagIDs(
     const path = joinPath(directory, file);
 
     let result: Promise<void>;
-    if (tags) {
+    if (tags && tags.ids.size > 0) {
         const data = Buffer.allocUnsafe(2 + tags.ids.size * 2);
         data.writeUInt16LE(tags.namespace, 0);
 
@@ -318,4 +362,47 @@ export function saveFileTagIDs(
     }
 
     return result;
+}
+
+async function ensureTagCleared(
+    directory: string,
+    fileName: string,
+    id: TagID,
+): Promise<void> {
+    const tags = await loadFileTagIDs(directory, fileName);
+    if (tags && tags.ids.delete(id))
+        return saveFileTagIDs(directory, fileName, tags, []);
+}
+
+export async function deleteTag(
+    directory: string,
+    tag: TagID,
+): Promise<void> {
+    assertValidTagID(tag);
+
+    const files = await readdirAsync(directory, {withFileTypes: true});
+    const tasks = new Array<Promise<void>>(files.length + 1);
+    let n;
+    for (n = 0; n < files.length; ++n)
+        tasks[n] = ensureTagCleared(directory, files[n].name, tag);
+
+    tasks[n] = clearTagIndex(directory, tag);
+
+    return Promise.all<void>(tasks) as unknown as Promise<void>;
+}
+
+export async function clearTagIndex(
+    directory: string,
+    tag?: TagID,
+): Promise<void> {
+    let path = getTagsIndexPath(directory, tag || 0);
+
+    if (tag) {
+        if (existsSync(path))
+            return unlinkAsync(path);
+    } else {
+        path = dirname(path);
+        if (existsSync(path))
+            return rmdirAsync(path, {recursive: true});
+    }
 }

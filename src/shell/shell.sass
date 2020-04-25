@@ -11,11 +11,10 @@
 
 section
     height: 100%
-    overflow: auto
 
 nav
     $nav-icon-size: 1.2em
-    $nav-button-size: 2.2em
+    $nav-button-size: $space-application-header
 
     position: absolute
     top: 0
@@ -28,19 +27,54 @@ nav
 
     .background
         display: inline-block
-        overflow: hidden
         border-radius: 0 0 $space-narrow/2 $space-narrow/2
-        background-color: rgba(#000, 0.33)
+        background-color: $color-panel
         pointer-events: auto
         transition: box-shadow $time-resize-animation * 2, background-color $time-resize-animation
 
         &:hover, &.focus
-            box-shadow: 0 0 $space-default #000
-            background-color: rgba($color-panel, 0.9)
+            box-shadow: 0 0 $space-default $color-panel-shadow
+            background-color: $color-panel-focus
             backdrop-filter: blur(0.2em)
 
         &.system
             float: right
+
+    .menu
+        > li 
+            padding-top: $space-default
+
+            > :first-child
+                flex-grow: 1
+
+        .group
+            display: flex
+            flex-direction: row-reverse
+
+            button
+                height: $space-text-box-height
+                width: $nav-button-size
+
+            > *:first-child
+                flex-grow: 1
+                flex-shrink: 1
+
+            > *:not(:first-child)
+                display: inline-block
+                border-right: 1px solid $color-panel-opaque
+
+        svg
+            @include svg-icon($nav-icon-size)
+
+    .scope-toggle
+        width: $nav-button-size
+        align-self: flex-end
+
+        button
+            width: 100%
+            height: $space-text-box-height
+            border-left: 1px solid $color-panel-opaque
+            text-align: center
 
     .actions
         display: inline-block
@@ -50,7 +84,6 @@ nav
 
         > li
             display: inline-block
-            cursor: pointer
             width: $nav-button-size
             height: $nav-button-size
             text-align: center
@@ -70,55 +103,3 @@ nav
         svg
             @include svg-icon($nav-icon-size)
             margin-top: ($nav-button-size - $nav-icon-size) / 2
-
-    .menu
-        text-align: left
-
-        > li
-            display: flex
-            flex-direction: row
-            padding: $space-default $space-contextual-input-sides $space-narrow $space-contextual-input-sides
-
-            > :first-child
-                flex-grow: 1
-
-        svg
-            @include svg-icon($nav-icon-size)
-
-        ul
-            > li
-                cursor: pointer
-                padding: $space-contextual-item-vertical $space-contextual-item-sides
-
-                &:hover, &.focus
-                    background-color: $color-list-hover
-
-            svg
-                @include svg-icon(1em)
-                margin-right: $space-narrow
-
-        .scope-toggle
-            width: $nav-button-size
-            align-self: flex-end
-
-            button
-                width: 100%
-                height: $space-text-box-height
-                border-left: 1px solid $color-panel
-                text-align: center
-        
-        .group
-            display: flex
-            flex-direction: row-reverse
-
-            button
-                height: $space-text-box-height
-                width: $nav-button-size
-
-            > *:first-child
-                flex-grow: 1
-                flex-shrink: 1
-
-            > *:not(:first-child)
-                display: inline-block
-                border-right: 1px solid $color-panel

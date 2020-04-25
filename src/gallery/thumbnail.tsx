@@ -41,8 +41,8 @@ interface Props {
 function renderThumbnail({files, index, pathFormat, onClick}: Props) {
     const fileName = files.names[index];
     return <li className="thumbnail" onClick={() => onClick(index)}>
-        <div>{fileName}</div>
         <img src={getThumbnailUrl(files.path, fileName, pathFormat)} alt="" />
+        <div>{fileName}</div>
     </li>;
 }
 

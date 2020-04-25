@@ -59,6 +59,7 @@ interface State {
     // Navigation related properties
     path: Path;
     menu?: Menu;
+    focusTime: number;
 
     // Relevant to the opened directory
     files?: FilesView;
@@ -208,8 +209,7 @@ const actions: Array<Action> = [
 ];
 
 const triviallyBoundMethods = [
-    "handleKeyDownNav",
-    "handleKeyDownShell",
+    "handleKeyDown",
     "handleMaybeLostFocus",
     "handleOpenDirectory",
     "handlePreloadChanged",
@@ -220,6 +220,7 @@ const triviallyBoundMethods = [
     "handleSetOrderParam",
     "handleSetThumbnailer",
     "handleThumbnailPathFormatChanged",
+    "handleThumbnailSizingChanged",
     "handleSetTransitionInterval",
     "handleToggleUseLocalPreference",
     "handleToggleTag",
@@ -237,7 +238,6 @@ function bindTriviallyBoundMethod<K extends TriviallyBoundMethodName>(
 export class ShellComponent extends React.Component<Props, State> {
     private readonly homePath: string;
     private unlistenHistory?: () => void;
-    private transitionTimer?: number;
 
     public readonly handleToggleSorting: () => void;
     public readonly handleToggleFiltering: () => void;
@@ -258,6 +258,7 @@ export class ShellComponent extends React.Component<Props, State> {
             filters: {},
             localPreferencesUsed: {},
             transitionInterval: 0,
+            focusTime: new Date().getTime(),
         };
 
         const {history} = this.props;
@@ -267,6 +268,8 @@ export class ShellComponent extends React.Component<Props, State> {
         triviallyBoundMethods.forEach(bindTriviallyBoundMethod, this);
 
         this.handleCreateTag = this.handleCreateTag.bind(this);
+        this.handleDeleteTag = this.handleDeleteTag.bind(this);
+        this.handleRenameTag = this.handleRenameTag.bind(this);
 
         this.handleToggleSorting = this.setOpenMenu.bind(this, Menu.Ordering);
         this.handleToggleFiltering = this.setOpenMenu.bind(this, Menu.Filter);
@@ -290,24 +293,8 @@ export class ShellComponent extends React.Component<Props, State> {
     }
 
     public componentDidUpdate(prevProps: Props, prevState: State): void {
-        const {transitionInterval} = this.state;
-        if (prevState.transitionInterval !== transitionInterval) {
-            if (this.transitionTimer)
-                clearInterval(this.transitionTimer);
-
-            if (transitionInterval === 0) {
-                delete this.transitionTimer;
-            } else {
-                this.transitionTimer = window.setInterval(
-                    () => this.navigateNext(),
-                    transitionInterval);
-            }
-        }
 
         if (prevState.path !== this.state.path) {
-            if (this.transitionTimer)
-                clearInterval(this.transitionTimer);
-    
             if (this.state.transitionInterval)
                 this.setState({transitionInterval: 0});
         }
@@ -322,6 +309,7 @@ export class ShellComponent extends React.Component<Props, State> {
 
         const {api, location} = this.props;
         const {
+            focusTime,
             path,
             selectedTags,
             menu,
@@ -331,23 +319,21 @@ export class ShellComponent extends React.Component<Props, State> {
         } = this.state;
 
         let selectedFile: string | undefined;
-        let selectedDirectory: string | undefined;
-        if (files && path !== Path.Gallery) {
+        if (files && path !== Path.Gallery)
             selectedFile = files.names[location.state.fileIndex];
-            selectedDirectory = files.path;
-        }
 
         return <div tabIndex={0}
             onMouseDown={this.handleMaybeLostFocus}
-            onKeyDown={this.handleKeyDownShell}
+            onKeyDown={this.handleKeyDown}
         >
             <Switch>
                 <Route
                     path={`${Path.Stage}/:file`}
-                    render={p => <Stage
+                    render={p => <Stage focusTime={focusTime}
                         files={files} // It's not possible to get here without loading a directory
                         fileIndex={p.location.state.fileIndex}
                         preload={preferences.preload}
+                        transitionInterval={transitionInterval}
                         onSetFileIndex={this.handleSelectFile} />}
                 />
                 <Route
@@ -358,10 +344,11 @@ export class ShellComponent extends React.Component<Props, State> {
                         initialFocus={p.location.state?.fileIndex || 0}
                         files={files}
                         thumbnailPath={preferences.thumbnail === "mapped" ? preferences.thumbnailPath : undefined}
+                        thumbnailScaling={preferences.thumbnailSizing}
                         onFileSelected={this.handleSelectFile} />}
                 />
             </Switch>
-            <nav onMouseDown={sinkEvent} onKeyDown={this.handleKeyDownNav}>
+            <nav onMouseDown={sinkEvent}>
                 <SystemButtons api={api} />
                 <div className={menu ? "background focus" : "background"}>
                     <ul className="actions">
@@ -387,12 +374,14 @@ export class ShellComponent extends React.Component<Props, State> {
 
                     {menu === Menu.Filter && <Filter
                         api={api}
-                        directory={selectedDirectory}
+                        directory={files.path}
                         file={selectedFile}
                         tags={tags}
                         filteringTags={selectedTags}
                         onToggleTag={this.handleToggleTag}
-                        onCreateTag={this.handleCreateTag} />}
+                        onCreateTag={this.handleCreateTag}
+                        onRenameTag={this.handleRenameTag}
+                        onDeleteTag={this.handleDeleteTag} />}
 
                     {menu === Menu.Thumbnails && <Thumbnails
                         localPreferences={localPreferencesUsed}
@@ -402,7 +391,9 @@ export class ShellComponent extends React.Component<Props, State> {
                         thumbnailer={preferences.thumbnail}
                         onThumbnailerChanged={this.handleSetThumbnailer}
                         thumbnailPathFormat={preferences.thumbnailPath}
-                        onThumbnailPathFormatChanged={this.handleThumbnailPathFormatChanged} />}
+                        onThumbnailPathFormatChanged={this.handleThumbnailPathFormatChanged}
+                        thumbnailSizing={preferences.thumbnailSizing}
+                        onThumbnailSizingChanged={this.handleThumbnailSizingChanged} />}
 
                     {menu === Menu.Ordering && <Ordering
                         localPreferences={localPreferencesUsed}
@@ -430,13 +421,6 @@ export class ShellComponent extends React.Component<Props, State> {
             historyState = Object.assign({}, location.state);
 
         history.push(path, historyState);
-    }
-
-    private navigateNext(): void { 
-        const fileIndex = this.props.location.state.fileIndex;
-        const files = filterFilesMemoized(this.state);
-        if (files && fileIndex < files.names.length - 1)
-            this.handleSelectFile(fileIndex + 1);
     }
 
     private setOpenMenu(newMenu: Menu): void {
@@ -492,58 +476,75 @@ export class ShellComponent extends React.Component<Props, State> {
         }
     }
 
-    handleCreateTag(name: string): Promise<TagID> {
-        return new Promise((resolve, reject) => {
-            this.setState(
-                s => {
-                    const result: TagNamespace = {
-                        ...s.tags,
-                        names: new Map(s.tags.names.entries()),
-                    };
-    
-                    result.names.set(result.nextId, name);
-                    resolve(result.nextId);
+    private async updateTagNamespace<T>(
+        change: (ns: TagNamespace, state: State) => T,
+    ): Promise<T> {
+        let complete: () => void;
+        let committed: Map<TagID, string>;
 
-                    while (result.names.has(result.nextId))
-                        ++result.nextId;
-    
-                    return {tags: result};
-                },
-                () => {
+        return new Promise<T>((resolve, reject) => this.setState(
+            state => {
+                committed = new Map(state.tags.names.entries());
+                const tags: TagNamespace = {
+                    ...state.tags,
+                    names: committed,
+                };
+
+                complete = resolve.bind(null, change(tags, state));
+                return {tags};
+            },
+            () => {
+                // See if we won the right to write
+                if (committed === this.state.tags.names) {
                     const directory = (this.state.files as FilesView).path;
-                    this.props.api.saveTagNamespace(directory, this.state.tags);
-                });
+                    this.props.api.saveTagNamespace(directory, this.state.tags)
+                        .then(complete, reject);
+                } else {
+                    complete();
+                }
+            }));
+    }
+
+    handleCreateTag(name: string): Promise<TagID> {
+        return this.updateTagNamespace(ns => {
+            const assignedId = ns.nextId;
+            ns.names.set(assignedId, name);
+
+            while (ns.names.has(ns.nextId))
+                ++ns.nextId;
+
+            return assignedId;
         });
     }
 
-    handleKeyDownNav(ev: React.KeyboardEvent): void {
-        if (ev.key === "Escape")
-            this.handleMaybeLostFocus();
-        
-        ev.stopPropagation();
+    async handleDeleteTag(id: TagID): Promise<void> {
+        // Delete the tag from files first, fail results in retry
+        // The other way around puts us in a bad state with dangling pointers
+        const directory = (this.state.files as FilesView).path;
+        await this.props.api.deleteTag(directory, id);
+
+        return this.updateTagNamespace((ns, {selectedTags}) => {
+            if (selectedTags.has(id))
+                this.handleToggleTag(id);
+
+            ns.names.delete(id);
+
+            if (ns.nextId > id)
+                ns.nextId = id;
+        });
     }
 
-    handleKeyDownShell(ev: React.KeyboardEvent): void {
-        const locationState = this.props.location.state;
-        switch (ev.key) {
-        case "Escape":
+    handleKeyDown(ev: React.KeyboardEvent): void {
+        if (ev.key === "Escape")
             this.handleMaybeLostFocus();
-            break;
-
-        case "ArrowRight":
-            this.navigateNext();
-            break;
-
-        case "ArrowLeft":
-            if (locationState.fileIndex)
-                this.handleSelectFile(locationState.fileIndex - 1);
-            break;
-        }
     }
 
     handleMaybeLostFocus(): void {
         if (this.state.menu)
-            this.setState({menu: Menu.None});
+            this.setState({
+                menu: Menu.None,
+                focusTime: new Date().getTime(),
+            });
     }
 
     handleOpenDirectory(): void {
@@ -558,6 +559,12 @@ export class ShellComponent extends React.Component<Props, State> {
 
     handlePreloadChanged(preload: number): void {
         this.setPreference({preload});
+    }
+
+    handleRenameTag(id: TagID, newName: string): Promise<void> {
+        return this.updateTagNamespace(ns => {
+            ns.names.set(id, newName);
+        });
     }
 
     handleReturnHome(): void {
@@ -586,6 +593,10 @@ export class ShellComponent extends React.Component<Props, State> {
 
     handleThumbnailPathFormatChanged(thumbnailPath: string): void {
         this.setPreference({thumbnailPath});
+    }
+
+    handleThumbnailSizingChanged(thumbnailSizing: ThumbnailSizing): void {
+        this.setPreference({thumbnailSizing});
     }
 
     handleSetTransitionInterval(transitionInterval: number): void {
@@ -622,12 +633,17 @@ export class ShellComponent extends React.Component<Props, State> {
             }
 
             const directory = (this.state.files as FilesView).path;
-            this.props.api.loadTagsIndex(directory, id).then(
-                tags => this.setState(({selectedTags, filters}) => {
+
+            const loadTask = id === -1
+                ? this.props.api.findUntaggedFiles(directory)
+                : this.props.api.loadTagsIndex(directory, id);
+
+            loadTask.then(
+                fileNames => this.setState(({selectedTags, filters}) => {
                     if (!selectedTags.has(id))
                         return null;
 
-                    filters = {[id]: tags, ...filters};
+                    filters = {[id]: fileNames, ...filters};
                     return {filters};
                 }));
 
