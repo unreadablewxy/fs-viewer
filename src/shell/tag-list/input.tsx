@@ -2,6 +2,7 @@ import * as React from "react";
 
 interface Props {
     value: string;
+    disabled?: boolean;
 
     onChange: (term: string) => void;
     onSubmit: (toggle: boolean) => void;
@@ -11,7 +12,7 @@ interface Props {
 }
 
 interface InternalProps extends Props {
-    forwardedRef: null | React.Ref<HTMLInputElement>;
+    forwardedRef?: React.Ref<HTMLInputElement>;
 }
 
 interface State {
@@ -28,7 +29,7 @@ const noKeyDown = {
 
 type KeyStateNames = "shiftDown" | "controlDown" | "altDown";
 
-class InputComponent extends React.PureComponent<InternalProps, State> {
+export class InputComponent extends React.PureComponent<InternalProps, State> {
     constructor(props: InternalProps, context: any) {
         super(props, context);
 
@@ -41,13 +42,14 @@ class InputComponent extends React.PureComponent<InternalProps, State> {
     }
 
     render() {
-        const {forwardedRef, value} = this.props;
+        const {disabled, forwardedRef, value} = this.props;
 
         return <label>
             <div>Search</div>
             <input type="search"
                 size={1}
                 ref={forwardedRef}
+                disabled={disabled}
                 placeholder="Tag name"
                 value={value}
                 onChange={this.handleChange}

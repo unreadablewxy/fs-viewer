@@ -23,10 +23,9 @@ function compareRankedTags(a: RankedTag, b: RankedTag): number {
 }
 
 function filterTags(
-    tags: Readonly<Tag[]>,
+    tags: ReadonlyArray<Tag>,
     searchTerm: string,
-    selected: Set<number>,
-): Array<Tag> {
+): ReadonlyArray<Tag> {
     if (searchTerm) {
         let result = new Array<RankedTag>();
         const term = searchTerm.toLowerCase();
@@ -40,20 +39,14 @@ function filterTags(
         return result.sort(compareRankedTags);
     }
 
-    const selectedTags = new Array<Tag>();
-
-    const notSelectedTags = new Array<Tag>();
-    for (const tag of tags) {
-        const isSelected = selected.has(tag.id);
-        (isSelected ? selectedTags : notSelectedTags).push(tag);
-    }
-
-    return selectedTags.concat(notSelectedTags);
+    return tags;
 }
 
 interface Props {
     tags: Readonly<Tag[]>;
+    disabled?: boolean;
     selected: Set<number>;
+    onFilterChange: () => void;
     onToggleTag: (tag: TagID) => void;
     onCreateTag: (tag: string) => void;
     onRenameTag: (tag: TagID, newName: string) => void;
@@ -123,14 +116,18 @@ export class TagList extends React.PureComponent<Props, State> {
     render() {
         const {forceCreate, selectedIndex, inputText, menu, renaming} = this.state;
         const searchTerm = inputText.trim();
-        const tags = filterTags(this.props.tags, searchTerm, this.props.selected);
+        const tags = filterTags(this.props.tags, searchTerm);
         let cursorIndex = searchTerm && forceCreate
             ? -1
             : offsetToIndex(selectedIndex, tags.length);
 
+        const {disabled} = this.props;
+        const listClassName = disabled ? "tag-picker disabled" : "tag-picker";
+
         return <>
             <li onMouseDown={this.handleMouseDown}>
                 <Input ref={this.inputRef as any}
+                    disabled={disabled}
                     value={inputText}
                     onChange={this.handleInputChange}
                     onSubmit={this.handleInputSubmit}
@@ -138,7 +135,7 @@ export class TagList extends React.PureComponent<Props, State> {
                     onSelectChange={this.handleTagCursorChange}
                     onRename={this.handleRenameBegin} />
             </li>
-            <li className="tag-picker" onMouseDown={this.handleMouseDown}>
+            <li className={listClassName} onMouseDown={this.handleMouseDown}>
                 <ScrollPane>
                     <ul>
                     {searchTerm && (tags.length < 1 || forceCreate) && (
@@ -186,8 +183,7 @@ export class TagList extends React.PureComponent<Props, State> {
 
     private getSelectedTag(): Tag | null {
         const searchTerm = this.state.inputText.trim();
-        const {selected, tags: unfiltered} = this.props;
-        const tags = filterTags(unfiltered, searchTerm, selected);
+        const tags = filterTags(this.props.tags, searchTerm);
         if (tags.length < 1) return null;
 
         return tags[offsetToIndex(this.state.selectedIndex, tags.length)];
@@ -211,6 +207,7 @@ export class TagList extends React.PureComponent<Props, State> {
     }
 
     handleInputChange(inputText: string): void {
+        this.props.onFilterChange();
         this.setState({inputText, selectedIndex: 0});
     }
 
@@ -223,8 +220,8 @@ export class TagList extends React.PureComponent<Props, State> {
 
     handleInputSubmit(): void {
         const searchTerm = this.state.inputText.trim();
-        const {onToggleTag, selected, tags: unfiltered} = this.props;
-        const tags = filterTags(unfiltered, searchTerm, selected);
+        const {onToggleTag, tags: unfiltered} = this.props;
+        const tags = filterTags(unfiltered, searchTerm);
         if (searchTerm && (tags.length < 1 || this.state.forceCreate)) {
             this.createTag(searchTerm);
         } else if (tags.length > 0) {

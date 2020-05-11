@@ -1,10 +1,13 @@
 import * as React from "react";
 import {Icon} from "@mdi/react";
-import {mdiPlay, mdiStop} from "@mdi/js";
+import {mdiPlay, mdiStop, mdiImageSizeSelectActual, mdiImageSizeSelectLarge, mdiFitToPage} from "@mdi/js";
 
 import {ScopeToggle} from "./scope-toggle";
 
 interface Props {
+    showActualSize: boolean;
+    onToggleScaling(): void;
+
     localPreferences: PreferenceNameSet;
     onTogglePreferenceScope(name: keyof Preferences): void;
 
@@ -54,14 +57,26 @@ export class Shows extends React.PureComponent<Props> {
             localPreferences,
             preload,
             transitionInterval,
+            showActualSize,
+            onToggleScaling,
         } = this.props;
 
         return <ul className="menu thumbnails">
             <li>
                 <label>
+                    <div>Scaling</div>
+                    <button className="toggle" onClick={onToggleScaling}>
+                        <Icon path={showActualSize ? mdiImageSizeSelectActual : mdiFitToPage} />
+                        <span>{showActualSize ? "Actual size" : "Show all"}</span>
+                    </button>
+                </label>
+            </li>
+            <li>
+                <label>
                     <div>Slideshow delay (ms)</div>
                     <div className="group">
-                        <input
+                        <input type="text"
+                            size={1}
                             value={transitionInterval || "Off"}
                             onChange={this.handleTransitionIntervalChanged} />
                         <button onClick={this.handleToggleTransition}>
@@ -73,8 +88,8 @@ export class Shows extends React.PureComponent<Props> {
             <li>
                 <label>
                     <div>Files to preload</div>
-                    <input
-                        type="range"
+                    <input type="number"
+                        size={1}
                         min="0"
                         max="9"
                         value={preload}

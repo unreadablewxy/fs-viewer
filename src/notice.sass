@@ -1,0 +1,32 @@
+@import './global.sass'
+
+.notice
+    position: relative
+    border: 1px solid $color-text
+
+    &.warning
+        background-color: transparentize($color-warning, 0.8)
+        border-color: $color-warning
+
+    &.error
+        background-color: transparentize($color-error, 0.8)
+        border-color: $color-error
+
+    h1, div
+        margin: $space-narrow $space-default
+
+    h1
+        display: block
+        font-size: 1em
+        padding: 0
+
+        svg
+            display: inline-block
+            width: 1em
+            height: 1em
+            margin-right: $space-narrow
+
+        span
+            overflow: hidden
+            text-overflow: ellipsis
+            white-space: nowrap

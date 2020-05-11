@@ -49,8 +49,8 @@ export class Thumbnails extends React.PureComponent<Props> {
             <li>
                 <label>
                     <div>Columns</div>
-                    <input
-                        type="number"
+                    <input type="number"
+                        size={1}
                         value={columns}
                         onChange={this.handleColumnsChange} />
                 </label>
@@ -76,7 +76,8 @@ export class Thumbnails extends React.PureComponent<Props> {
             {thumbnailer === "mapped" && <li>
                 <label>
                     <div>Thumbnail path format</div>
-                    <input
+                    <input type="text"
+                        size={1}
                         value={thumbnailPathFormat}
                         onChange={this.handleThumbnailPathFormatChanged} />
                 </label>

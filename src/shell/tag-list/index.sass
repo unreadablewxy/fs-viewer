@@ -8,6 +8,11 @@ $size-icon-offset: 1em + $size-icon-spacing
     padding-top: 0
     max-height: 80vh
 
+    &.disabled li
+        pointer-events: none
+        background-color: none
+        color: $color-text-disabled
+
     > .scroll-pane
         height: auto
 

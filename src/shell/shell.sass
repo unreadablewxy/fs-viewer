@@ -66,6 +66,9 @@ nav
         svg
             @include svg-icon($nav-icon-size)
 
+        .notice
+            margin: $space-default
+
     .scope-toggle
         width: $nav-button-size
         align-self: flex-end
@@ -85,21 +88,41 @@ nav
         > li
             display: inline-block
             width: $nav-button-size
+            max-width: $nav-button-size
             height: $nav-button-size
             text-align: center
             overflow: hidden
-            transition: background $time-resize-animation, width $time-resize-animation
+            transition: background $time-resize-animation, max-width $time-resize-animation
+
+            &:hover
+                background-color: $color-clickable-hover
 
             &.application
                 -webkit-app-region: drag
                 cursor: move
 
-            &.hidden
-                width: 0
+            &.variadic
+                width: auto
+                max-width: 50vw
 
-            &:hover
-                background-color: $color-clickable-hover
+            &.hidden
+                min-width: 0
+                max-width: 0
+
+            > span
+                padding: 0 $space-narrow
 
         svg
             @include svg-icon($nav-icon-size)
             margin-top: ($nav-button-size - $nav-icon-size) / 2
+
+    .pill
+        display: inline-block
+        background: rgba(28, 98, 185)
+        min-width: 1.2em
+        padding: 0 $space-narrow
+        font-size: 80%
+        vertical-align: bottom
+        text-align: center
+        border-radius: $space-narrow
+        margin: 0 0 (-$space-narrow) (-$space-default)

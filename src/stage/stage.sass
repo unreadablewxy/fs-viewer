@@ -4,6 +4,11 @@
     position: relative
     outline: 0px none
 
+    &.fit .center
+        img, video
+            max-width: 100%
+            max-height: 100%
+
     .center
         width: 100%
         height: 100%
@@ -26,16 +31,12 @@
                 height: 100%
                 vertical-align: middle
 
-            > *
-                display: inline-block
-                vertical-align: middle
-
-            &.fit > *
-                max-width: 100%
-                max-height: 100%
-
         img
             pointer-events: none
+
+        img, video
+            display: inline-block
+            vertical-align: middle
 
     > button
         position: absolute

@@ -13,11 +13,27 @@ $color-thumbnail-background: mix(#FFF, #000, 10%)
         margin: 0 4px 4px 0
         background-color: $color-thumbnail-background
 
+        &.selected
+            outline: 4px solid $color-input-outline-focus
+
+            > img
+                filter: brightness(33%)
+
+        &.anchor::after
+            content: ''
+            position: absolute
+            bottom: 0
+            right: 0
+            border-bottom: 2em solid $color-input-outline-focus
+            border-left: 2em solid transparent
+
         > img
             width: 100%
             height: 100%
             object-fit: scale-down
             pointer-events: none
+
+            transition: filter $time-color-change
 
         > div
             position: absolute

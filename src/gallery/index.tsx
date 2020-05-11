@@ -7,12 +7,17 @@ import {Thumbnail} from "./thumbnail";
 
 interface Props {
     files: FilesView;
-    thumbnailPath?: string;
-    thumbnailScaling: ThumbnailSizing;
+    onPickFile: (index: number) => void;
+
+    selected: Set<number> | null;
+    onSelectChanged: (index: number, end: number, clear: boolean) => void;
+
     initialFocus: number;
     columns: number;
     overscan: number;
-    onFileSelected: (index: number) => void;
+
+    thumbnailPath?: string;
+    thumbnailScaling: ThumbnailSizing;
 }
 
 interface State {
@@ -20,6 +25,7 @@ interface State {
     lastVisible: number;
     underflow?: boolean;
     animating?: boolean;
+    selectAnchor: number | null;
 }
 
 function thumbnailInnerSizeExpression(columns: number): string {
@@ -75,9 +81,11 @@ export class Gallery extends React.PureComponent<Props, State> {
         this.state = {
             firstVisible,
             lastVisible: firstVisible + columns,
+            selectAnchor: null,
         };
 
-        this.onIntersection = this.onIntersection.bind(this);
+        this.handleIntersection = this.handleIntersection.bind(this);
+        this.handleClickThumbnail = this.handleClickThumbnail.bind(this);
     }
 
     private clearCatchupTimer(): void {
@@ -98,7 +106,7 @@ export class Gallery extends React.PureComponent<Props, State> {
         }
     }
 
-    private onIntersection(
+    private handleIntersection(
         entries: IntersectionObserverEntry[],
         observer: IntersectionObserver): void
     {
@@ -178,7 +186,7 @@ export class Gallery extends React.PureComponent<Props, State> {
         };
     }
 
-    public componentDidMount(): void {
+    componentDidMount(): void {
         this.styles = document.createElement("style");
         document.head.appendChild(this.styles);
         this.updateStyles();
@@ -197,14 +205,14 @@ export class Gallery extends React.PureComponent<Props, State> {
         // Upon creation, the observer should fire off an event that will
         // trigger a underflow event, which will properly measure the view port
         // and expand the 1 visible row to many
-        this.observer = new IntersectionObserver(this.onIntersection, options);
+        this.observer = new IntersectionObserver(this.handleIntersection, options);
         this.observer.observe(this.unrenderedTop.current as Element);
         this.observer.observe(this.unrenderedBottom.current as Element);
         this.observer.observe(this.overscanTop.current as Element);
         this.observer.observe(this.overscanBottom.current as Element);
     }
 
-    public componentWillUnmount(): void {
+    componentWillUnmount(): void {
         this.observer?.disconnect();
         document.head.removeChild(this.styles as HTMLStyleElement);
 
@@ -215,14 +223,19 @@ export class Gallery extends React.PureComponent<Props, State> {
             clearTimeout(this.animationTimer);
     }
 
-    public componentDidUpdate(prev: Props): void {
-        if (prev.columns !== this.props.columns) {
+    componentDidUpdate(prev: Props): void {
+        const {columns, files, selected} = this.props;
+
+        if (prev.columns !== columns) {
             this.updateStyles();
             this.beginAnimation();
         }
 
-        if (prev.files !== this.props.files)
+        if (prev.files !== files)
             this.onCatchup();
+
+        if (prev.selected && !selected && this.state.selectAnchor !== null)
+            this.setState({selectAnchor: null});
     }
 
     private beginAnimation(): void {
@@ -237,12 +250,12 @@ export class Gallery extends React.PureComponent<Props, State> {
         }, 210);
     }
 
-    public render() {
+    render() {
         const {
             files,
             columns,
             overscan,
-            onFileSelected,
+            selected,
             thumbnailPath,
             thumbnailScaling,
         } = this.props;
@@ -284,12 +297,6 @@ export class Gallery extends React.PureComponent<Props, State> {
             height: `calc((${rowHeightExpression})*${Math.ceil((objectsCount - lastDrawn) / columns)})`,
         };
 
-        const commonThumbnailProps = {
-            files,
-            pathFormat: thumbnailPath,
-            onClick: onFileSelected,
-        };
-
         return <section className={`gallery scale-${thumbnailScaling}`}>
             <ScrollPane contentRef={this.viewport}>
                 <div className="unrendered top"
@@ -299,11 +306,17 @@ export class Gallery extends React.PureComponent<Props, State> {
                     <div ref={this.overscanTop}></div>
                 </div>
                 <ul ref={this.thumbnailContainer}>
-                    {names.map((_, i) => (
-                        <Thumbnail key={i + firstDrawn}
-                            {...commonThumbnailProps}
-                            index={i + firstDrawn} />
-                    ))}
+                    {names.map((_, i) => {
+                        const index = i + firstDrawn;
+
+                        return <Thumbnail key={index}
+                            files={files}
+                            index={index}
+                            anchor={index === this.state.selectAnchor}
+                            selected={selected?.has(index) || false}
+                            pathFormat={thumbnailPath}
+                            onClick={this.handleClickThumbnail} />
+                    })}
                 </ul>
                 <div className="unrendered bot"
                     ref={this.unrenderedBottom}
@@ -313,5 +326,41 @@ export class Gallery extends React.PureComponent<Props, State> {
                 </div>
             </ScrollPane>
         </section>;
+    }
+
+    handleClickThumbnail(
+        index: number,
+        {ctrlKey, shiftKey, altKey}: React.MouseEvent,
+    ): void {
+        if (ctrlKey || shiftKey) {
+            this.setState(state => {
+                // Range selection takes precedence
+                if (shiftKey) {
+                    let start: number;
+                    let end: number;
+                    const selectAnchor = state.selectAnchor;
+                    if (selectAnchor || selectAnchor === 0) {
+                        if (index < selectAnchor) {
+                            start = index;
+                            end = selectAnchor;
+                        } else {
+                            start = selectAnchor;
+                            end = index;
+                        }
+                    } else {
+                        start = end = index;
+                    }
+
+                    this.props.onSelectChanged(start, end + 1, altKey);
+                    return {selectAnchor: altKey ? null : index};
+                }
+
+                const targetSelected = this.props.selected?.has(index) || false;
+                this.props.onSelectChanged(index, index + 1, targetSelected);
+                return {selectAnchor: index};
+            });
+        } else {
+            this.props.onPickFile(index);
+        }
     }
 }

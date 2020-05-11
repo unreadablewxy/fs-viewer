@@ -156,7 +156,9 @@ export class Ordering extends React.PureComponent<Props> {
             {requireSplitting && <li>
                 <label>
                     <div>Separator</div>
-                    <input placeholder="Text"
+                    <input type="text"
+                        size={1}
+                        placeholder="Text"
                         value={orderParam}
                         onChange={this.handleSetOrderParam} />
                 </label>

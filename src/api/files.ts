@@ -101,7 +101,7 @@ export function saveTagNamespace(directory: string, ns: TagNamespace): Promise<v
             || joinPath(directory, tagsNSFile);
 
         let stream = createWriteStream(filePath);
-        stream.on("end", resolve);
+        stream.on("close", resolve);
         stream.on("error", reject);
 
         stream.write(tagsNSFileHeader);
@@ -362,6 +362,48 @@ export function saveFileTagIDs(
     }
 
     return result;
+}
+
+export async function addTagToFiles(
+    directory: string,
+    files: string[],
+    namespaceID: NamespaceID,
+    tag: TagID,
+): Promise<void> {
+    const tasks = new Array(files.length);
+    for (let n = files.length; n --> 0;)
+        tasks[n] = ensureTagSet(directory, files[n], namespaceID, tag);
+
+    const indexPath = getTagsIndexPath(directory, tag);
+    await Promise.all(tasks);
+    if (existsSync(indexPath))
+        await writeTagsIndex(indexPath, files, "a");
+}
+
+export function removeTagFromFiles(
+    directory: string,
+    files: string[],
+    tag: TagID,
+): Promise<void> {
+    const tasks = new Array(files.length);
+    for (let n = files.length; n --> 0;)
+    tasks[n] = ensureTagCleared(directory, files[n], tag);
+
+    return Promise.all(tasks) as unknown as Promise<void>;
+}
+
+async function ensureTagSet(
+    directory: string,
+    fileName: string,
+    namespace: NamespaceID,
+    id: TagID,
+): Promise<void> {
+    let tags = await loadFileTagIDs(directory, fileName);
+    if (!tags)
+        tags = {namespace, ids: new Set<number>()};
+
+    if (tags.ids.size !== tags.ids.add(id).size)
+        return saveFileTagIDs(directory, fileName, tags, []);
 }
 
 async function ensureTagCleared(

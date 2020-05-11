@@ -13,6 +13,7 @@ import {
     mdiImageBroken,
     mdiSort,
     mdiViewGrid,
+    mdiSelection,
 } from "@mdi/js";
 
 import {sinkEvent} from "../event";
@@ -51,9 +52,12 @@ interface Props {
     history: History<HistoryState>;
     location: Location<HistoryState>;
     match: match;
+    preferences: Preferences;
 }
 
 type FilterLookup = {[tagId: number]: Set<string>};
+
+const noTags = new Set<number>();
 
 interface State {
     // Navigation related properties
@@ -63,19 +67,22 @@ interface State {
 
     // Relevant to the opened directory
     files?: FilesView;
+    selectedFiles: Set<number> | null;
 
     // Filtering state
     tags: TagNamespace;
     selectedTags: Set<number>;
+    batchSelectedTags: Set<number>;
     filters: FilterLookup;
 
     // Preferences and the modification thereof
-    preferences?: Preferences;
+    preferences: Preferences;
     localPreferences?: Partial<Preferences>;
     localPreferencesUsed: PreferenceNameSet;
 
     // Other feature related ephemeral state
     transitionInterval: number;
+    showActualSize: boolean;
 }
 
 function getFiles(s: State): FilesView {
@@ -115,7 +122,7 @@ const filterFilesMemoized = createSelector<
     FilesView
 >(sortFilesMemoized, getFiltersMemoized, filterFiles);
 
-function getGlobalPrefs(s: State): Preferences | undefined {
+function getGlobalPrefs(s: State): Preferences {
     return s.preferences;
 }
 
@@ -128,10 +135,10 @@ function getLocalPreferencesUsed(s: State): PreferenceNameSet {
 }
 
 function getEffectivePrefs(
-    global: Preferences | undefined,
+    global: Preferences,
     directory: Partial<Preferences> | undefined,
     mask: PreferenceNameSet
-): Preferences | undefined {
+): Preferences {
     if (!global || !directory)
         return global;
 
@@ -151,10 +158,10 @@ function getEffectivePrefs(
 
 const getEffectivePreferencesMemoized = createSelector<
     State,
-    Preferences | undefined,
+    Preferences,
     Partial<Preferences> | undefined,
     PreferenceNameSet,
-    Preferences | undefined
+    Preferences
 >(getGlobalPrefs, getDirectoryPrefs, getLocalPreferencesUsed, getEffectivePrefs);
 
 function inferUsedLocalPreferences(
@@ -210,20 +217,22 @@ const actions: Array<Action> = [
 
 const triviallyBoundMethods = [
     "handleKeyDown",
-    "handleMaybeLostFocus",
     "handleOpenDirectory",
     "handlePreloadChanged",
     "handleReturnHome",
     "handleSelectFile",
+    "handleSelectChanged",
     "handleSetColumns",
     "handleSetOrder",
     "handleSetOrderParam",
     "handleSetThumbnailer",
     "handleThumbnailPathFormatChanged",
     "handleThumbnailSizingChanged",
+    "handleToggleScaling",
     "handleSetTransitionInterval",
     "handleToggleUseLocalPreference",
     "handleToggleTag",
+    "handleToggleBatchTag",
 ] as const;
 
 type TriviallyBoundMethodName = typeof triviallyBoundMethods[number];
@@ -248,7 +257,8 @@ export class ShellComponent extends React.Component<Props, State> {
         super(props, context);
 
         this.state = {
-            selectedTags: new Set<number>(),
+            selectedTags: noTags,
+            batchSelectedTags: noTags,
             path: Path.Gallery,
             tags: {
                 identifier: 0,
@@ -259,30 +269,26 @@ export class ShellComponent extends React.Component<Props, State> {
             localPreferencesUsed: {},
             transitionInterval: 0,
             focusTime: new Date().getTime(),
+            selectedFiles: null,
+            preferences: props.preferences,
+            showActualSize: false,
         };
 
-        const {history} = this.props;
         this.homePath = props.location.pathname;
-        history.replace(this.homePath, {fileIndex: 0});
 
         triviallyBoundMethods.forEach(bindTriviallyBoundMethod, this);
 
         this.handleCreateTag = this.handleCreateTag.bind(this);
         this.handleDeleteTag = this.handleDeleteTag.bind(this);
         this.handleRenameTag = this.handleRenameTag.bind(this);
+        this.handleMaybeLostFocus = this.handleMaybeLostFocus.bind(this);
 
         this.handleToggleSorting = this.setOpenMenu.bind(this, Menu.Ordering);
         this.handleToggleFiltering = this.setOpenMenu.bind(this, Menu.Filter);
         this.handleToggleThumbnailer = this.setOpenMenu.bind(this, Menu.Thumbnails);
         this.handleToggleShow = this.setOpenMenu.bind(this, Menu.Shows);
-    }
 
-    public componentDidMount(): void {
-        const {api, history} = this.props;
-
-        this.unlistenHistory = history.listen(this.updateLocation.bind(this));
-
-        api.loadPreferences().then(v => this.setState({preferences: v}));
+        this.unlistenHistory = this.props.history.listen(this.updateLocation.bind(this));
     }
 
     public componentWillUnmount(): void {
@@ -293,7 +299,6 @@ export class ShellComponent extends React.Component<Props, State> {
     }
 
     public componentDidUpdate(prevProps: Props, prevState: State): void {
-
         if (prevState.path !== this.state.path) {
             if (this.state.transitionInterval)
                 this.setState({transitionInterval: 0});
@@ -302,8 +307,6 @@ export class ShellComponent extends React.Component<Props, State> {
 
     public render() {
         const preferences = getEffectivePreferencesMemoized(this.state);
-        if (!preferences)
-            return <></>;
 
         const files = filterFilesMemoized(this.state);
 
@@ -316,37 +319,45 @@ export class ShellComponent extends React.Component<Props, State> {
             tags,
             localPreferencesUsed,
             transitionInterval,
+            selectedFiles,
+            showActualSize,
         } = this.state;
+
+        const fileIndex = location.state?.fileIndex || 0;
 
         let selectedFile: string | undefined;
         if (files && path !== Path.Gallery)
-            selectedFile = files.names[location.state.fileIndex];
+            selectedFile = files.names[fileIndex];
+
+        const selectedFilesCount = selectedFiles && selectedFiles.size || 0;
+        const batchTagging = path === Path.Gallery && selectedFilesCount || 0;
 
         return <div tabIndex={0}
             onMouseDown={this.handleMaybeLostFocus}
             onKeyDown={this.handleKeyDown}
         >
             <Switch>
-                <Route
-                    path={`${Path.Stage}/:file`}
-                    render={p => <Stage focusTime={focusTime}
+                <Route path={`${Path.Stage}/:file`}>
+                    <Stage focusTime={focusTime}
                         files={files} // It's not possible to get here without loading a directory
-                        fileIndex={p.location.state.fileIndex}
+                        fileIndex={fileIndex}
                         preload={preferences.preload}
                         transitionInterval={transitionInterval}
-                        onSetFileIndex={this.handleSelectFile} />}
-                />
-                <Route
-                    path="/"
-                    render={p => <Gallery
+                        showActualSize={showActualSize}
+                        onSetFileIndex={this.handleSelectFile} />
+                </Route>
+                <Route path="/">
+                    <Gallery
                         columns={preferences.columns}
                         overscan={2}
-                        initialFocus={p.location.state?.fileIndex || 0}
+                        initialFocus={fileIndex}
                         files={files}
                         thumbnailPath={preferences.thumbnail === "mapped" ? preferences.thumbnailPath : undefined}
                         thumbnailScaling={preferences.thumbnailSizing}
-                        onFileSelected={this.handleSelectFile} />}
-                />
+                        onPickFile={this.handleSelectFile}
+                        selected={selectedFiles}
+                        onSelectChanged={this.handleSelectChanged} />
+                </Route>
             </Switch>
             <nav onMouseDown={sinkEvent}>
                 <SystemButtons api={api} />
@@ -370,6 +381,14 @@ export class ShellComponent extends React.Component<Props, State> {
                         >
                             <Icon path={mdiArrowLeft} />
                         </li>
+
+                        <li className={selectedFilesCount < 1 ? "variadic hidden" : "variadic"}
+                            title={`${selectedFilesCount} files selected`}>
+                            <span>
+                                <Icon path={mdiSelection} />
+                                <span className="pill">{selectedFilesCount}</span>
+                            </span>
+                        </li>
                     </ul>
 
                     {menu === Menu.Filter && <Filter
@@ -377,8 +396,9 @@ export class ShellComponent extends React.Component<Props, State> {
                         directory={files.path}
                         file={selectedFile}
                         tags={tags}
-                        filteringTags={selectedTags}
-                        onToggleTag={this.handleToggleTag}
+                        batchSize={batchTagging}
+                        selectedTags={batchTagging ? this.state.batchSelectedTags : selectedTags}
+                        onToggleTag={batchTagging ? this.handleToggleBatchTag : this.handleToggleTag}
                         onCreateTag={this.handleCreateTag}
                         onRenameTag={this.handleRenameTag}
                         onDeleteTag={this.handleDeleteTag} />}
@@ -404,6 +424,8 @@ export class ShellComponent extends React.Component<Props, State> {
                         onSetOrderParam={this.handleSetOrderParam} />}
 
                     {menu === Menu.Shows && <Shows
+                        showActualSize={showActualSize}
+                        onToggleScaling={this.handleToggleScaling}
                         localPreferences={localPreferencesUsed}
                         onTogglePreferenceScope={this.handleToggleUseLocalPreference}
                         preload={preferences.preload}
@@ -437,7 +459,7 @@ export class ShellComponent extends React.Component<Props, State> {
             preferences,
         }, {api}) => {
             type Returnables = "preferences" | "localPreferences";
-            
+
             let result: Partial<Pick<State, Returnables>> = {};
             let localChanges: Partial<Preferences> = {};
             let globalChanges: Partial<Preferences> = {};
@@ -464,7 +486,7 @@ export class ShellComponent extends React.Component<Props, State> {
                 api.savePreferences(result.localPreferences, (files as FilesView).path);
             }
 
-            return result;
+            return result as Pick<State, Returnables>;
         });
     }
 
@@ -476,7 +498,7 @@ export class ShellComponent extends React.Component<Props, State> {
         }
     }
 
-    private async updateTagNamespace<T>(
+    private updateTagNamespace<T>(
         change: (ns: TagNamespace, state: State) => T,
     ): Promise<T> {
         let complete: () => void;
@@ -523,7 +545,7 @@ export class ShellComponent extends React.Component<Props, State> {
         const directory = (this.state.files as FilesView).path;
         await this.props.api.deleteTag(directory, id);
 
-        return this.updateTagNamespace((ns, {selectedTags}) => {
+        await this.updateTagNamespace((ns, {selectedTags}) => {
             if (selectedTags.has(id))
                 this.handleToggleTag(id);
 
@@ -535,16 +557,19 @@ export class ShellComponent extends React.Component<Props, State> {
     }
 
     handleKeyDown(ev: React.KeyboardEvent): void {
-        if (ev.key === "Escape")
-            this.handleMaybeLostFocus();
+        if (ev.key === "Escape" && !this.handleMaybeLostFocus())
+            this.setState({selectedFiles: null});
     }
 
-    handleMaybeLostFocus(): void {
-        if (this.state.menu)
+    handleMaybeLostFocus(): boolean {
+        const result = this.state.menu;
+        if (result)
             this.setState({
                 menu: Menu.None,
                 focusTime: new Date().getTime(),
             });
+
+        return !!result;
     }
 
     handleOpenDirectory(): void {
@@ -575,6 +600,18 @@ export class ShellComponent extends React.Component<Props, State> {
         this.navigate(`/stage/${fileIndex}`, {fileIndex});
     }
 
+    handleSelectChanged(start: number, end: number, clear: boolean): void {
+        this.setState(state => {
+            const selectedFiles = new Set<number>(state.selectedFiles);
+            if (clear)
+                while (end --> start) selectedFiles.delete(end);
+            else
+                while (end --> start) selectedFiles.add(end);
+
+            return {selectedFiles, batchSelectedTags: noTags};
+        });
+    }
+
     handleSetColumns(columns: number): void {
         this.setPreference({columns});
     }
@@ -597,6 +634,10 @@ export class ShellComponent extends React.Component<Props, State> {
 
     handleThumbnailSizingChanged(thumbnailSizing: ThumbnailSizing): void {
         this.setPreference({thumbnailSizing});
+    }
+
+    handleToggleScaling():void {
+        this.setState(({showActualSize}) => ({showActualSize: !showActualSize}));
     }
 
     handleSetTransitionInterval(transitionInterval: number): void {
@@ -623,13 +664,16 @@ export class ShellComponent extends React.Component<Props, State> {
         this.setState(({
             selectedTags: originalTags,
             filters: originalFilters
-        }): Pick<State, "selectedTags"> | Pick<State, "selectedTags" | "filters">  => {
+        }) => {
+            const selectedFiles = null;
+
             if (originalTags.has(id)) {
                 const selectedTags = new Set(originalTags);
                 selectedTags.delete(id);
 
                 const {[id]: _, ...filters} = originalFilters;
-                return {selectedTags, filters};
+                return {selectedFiles, selectedTags, filters} as
+                    Pick<State, "selectedFiles" | "selectedTags" | "filters">;
             }
 
             const directory = (this.state.files as FilesView).path;
@@ -644,12 +688,35 @@ export class ShellComponent extends React.Component<Props, State> {
                         return null;
 
                     filters = {[id]: fileNames, ...filters};
-                    return {filters};
+                    return {filters} as Pick<State, "filters">;
                 }));
 
             const selectedTags = new Set(originalTags);
             selectedTags.add(id);
-            return {selectedTags};
+            return {selectedFiles, selectedTags} as
+                Pick<State, "selectedFiles" | "selectedTags">;
+        });
+    }
+
+    handleToggleBatchTag(id: TagID): void {
+        this.setState(state => {
+            let {batchSelectedTags, selectedFiles, tags} = state;
+            if (!selectedFiles || batchSelectedTags.has(id))
+                return null;
+
+            const files = filterFilesMemoized(state);
+
+            const fileNames = new Array<string>(selectedFiles.size);
+            let n = 0;
+            for (const index of selectedFiles)
+                fileNames[n++] = files.names[index];
+
+            batchSelectedTags = new Set<number>(batchSelectedTags);
+            batchSelectedTags.add(id);
+
+            this.props.api.addTagToFiles(files.path, fileNames, tags.identifier, id);
+
+            return {batchSelectedTags};
         });
     }
 }

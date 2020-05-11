@@ -8,6 +8,7 @@ interface Props {
     preload: number;
     transitionInterval: number;
     focusTime: number;
+    showActualSize: boolean;
     onSetFileIndex: (index: number) => void;
 }
 
@@ -92,11 +93,12 @@ export class Stage extends React.PureComponent<Props, State> {
             }
         }
 
-        this.ensureFocus();
+        if (p.focusTime !== this.props.focusTime)
+            this.ensureFocus();
     }
 
     render() {
-        const {files, fileIndex} = this.props;
+        const {files, fileIndex, showActualSize} = this.props;
         const {dragging, fileType} = this.state;
         const fileName = files.names[fileIndex];
 
@@ -109,8 +111,9 @@ export class Stage extends React.PureComponent<Props, State> {
         }
 
         const fileUrl = `file://${files.path}/${fileName}`;
+        const cssClass = showActualSize ? "stage" : "stage fit";
 
-        return <section className="stage"
+        return <section className={cssClass}
             tabIndex={0}
             ref={this.container}
             onKeyDown={this.handleKeyDownShell}

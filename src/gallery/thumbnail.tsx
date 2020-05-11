@@ -1,47 +1,24 @@
 import * as React from "react";
-
-const unrenderedPattern = /\{(\w*)\}/g;
-
-function getThumbnailUrl(
-    directory: string,
-    fileName: string,
-    format?: string
-): string {
-    if (format) {
-        return "file://" + format.replace(unrenderedPattern, n => {
-            switch (n.slice(1, n.length - 1)) {
-            case "":
-            case "0":
-            case "fileName":
-                return fileName;
-
-            case "fileStem":
-                var extensionStart = fileName.lastIndexOf('.');
-                return extensionStart === -1 ? fileName : fileName.slice(0, extensionStart);
-
-            case "directory":
-                return directory;
-
-            default:
-                return "";
-            }
-        });
-    }
-
-    return `thumb://${directory}/${fileName}`;
-}
+import {Image} from "./image";
 
 interface Props {
-    files: FilesView,
-    index: number,
-    pathFormat?: string,
-    onClick: (index: number) => void;
+    files: FilesView;
+    index: number;
+    pathFormat?: string;
+    anchor: boolean;
+    selected: boolean;
+    onClick: (index: number, event: React.MouseEvent) => void;
 }
 
-function renderThumbnail({files, index, pathFormat, onClick}: Props) {
-    const fileName = files.names[index];
-    return <li className="thumbnail" onClick={() => onClick(index)}>
-        <img src={getThumbnailUrl(files.path, fileName, pathFormat)} alt="" />
+function renderThumbnail({onClick, anchor, selected, ...props}: Props) {
+    const fileName = props.files.names[props.index];
+
+    let className = "thumbnail";
+    if (anchor) className += " anchor";
+    if (selected) className += " selected";
+
+    return <li className={className} onClick={ev => onClick(props.index, ev)}>
+        <Image {...props} />
         <div>{fileName}</div>
     </li>;
 }

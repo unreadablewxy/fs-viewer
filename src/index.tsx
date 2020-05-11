@@ -6,10 +6,15 @@ import {Router} from "react-router";
 
 import {Shell} from "./shell";
 
+const loadPrefsTask = window.api.loadPreferences();
 const history = createBrowserHistory();
-const application =
-    <Router history={history}>
-        <Shell api={window.api} />
-    </Router>;
+const shellElement = document.getElementById("shell");
 
-render(application, document.getElementById("shell"));
+loadPrefsTask.then(prefs => {
+    const application =
+    <Router history={history}>
+        <Shell api={window.api} preferences={prefs} />
+    </Router>;
+    
+    render(application, shellElement);
+});

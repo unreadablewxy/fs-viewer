@@ -22,6 +22,7 @@
         "curly": false,
         "forin": false,
         "interface-name": false,
+        "max-classes-per-file": false,
         "ordered-imports": false,
         "object-literal-sort-keys": false,
         "fileName": false,

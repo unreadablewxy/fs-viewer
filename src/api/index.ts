@@ -7,6 +7,8 @@ import {
     saveTagNamespace,
     deleteTag,
     clearTagIndex,
+    addTagToFiles,
+    removeTagFromFiles,
 } from "./files";
 import {setMaximized, minimize, closeWindow} from "./window";
 import {loadPreferences, savePreferences} from "./preferences";
@@ -20,6 +22,8 @@ const api = Object.freeze({
     saveTagNamespace,
     deleteTag,
     clearTagIndex,
+    addTagToFiles,
+    removeTagFromFiles,
 
     setMaximized,
     minimize,

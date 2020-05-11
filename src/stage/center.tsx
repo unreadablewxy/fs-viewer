@@ -53,7 +53,7 @@ export class Center extends React.PureComponent<Props, State> {
             onWheel={this.handleMouseWheel}
             {...otherProps}
         >
-            <div className="fit" style={style}>{this.props.children}</div>
+            <div style={style}>{this.props.children}</div>
         </div>;
     }
 
