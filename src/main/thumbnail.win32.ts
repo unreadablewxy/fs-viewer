@@ -14,10 +14,16 @@ function handleThumbnailRequest(request: Request, complete: ResponseCallback): v
         return;
     }
 
-    const suffixIndex = request.url.indexOf("?", 8);
-    const size = suffixIndex > 0 && request.url.slice(suffixIndex + 3);
-    const resolution = resolutionMapping[size as ThumbnailResolution] || 256;
-    const requestPath = request.url.slice(8 /* len("thumb://") */, suffixIndex)
+    const prefixLength = 8; // len("thumb://")
+    let suffixOffset = request.url.indexOf("?", prefixLength);
+    let size: string | undefined;
+    if (suffixOffset > 0)
+        size = request.url.slice(suffixOffset + 3)
+    else
+        suffixOffset = request.url.length;
+
+    const resolution = resolutionMapping[size as ThumbnailResolution] || resolutionMapping.default;
+    const requestPath = request.url.slice(prefixLength, suffixOffset)
         .replace("/", "\\");
 
     getImageForPath(requestPath, {

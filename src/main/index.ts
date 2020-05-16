@@ -40,6 +40,7 @@ function createWindow(): void {
 }
 
 function onReady(): void {
+    registerThumbnailProtocol();
     createWindow();
 }
 
@@ -61,5 +62,3 @@ app.on("activate", () => {
     if (mainWindow === null)
         createWindow();
 });
-
-registerThumbnailProtocol();
