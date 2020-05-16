@@ -5,6 +5,7 @@ interface Props {
     files: FilesView;
     index: number;
     pathFormat?: string;
+    thumbnailResolution?: ThumbnailResolution;
     anchor: boolean;
     selected: boolean;
     onClick: (index: number, event: React.MouseEvent) => void;

@@ -1,6 +1,6 @@
 {
   "name": "fs-viewer",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "A tagging small media browser",
   "main": "build/index.js",
   "scripts": {
@@ -58,11 +58,13 @@
     "@babel/preset-typescript": "^7.9.0",
     "@types/enzyme": "^3.10.5",
     "@types/jest": "^25.2.1",
+    "@types/mime": "^2.0.1",
     "@types/react": "^16.9.34",
     "@types/react-dom": "^16.9.7",
     "@types/react-router-dom": "^5.1.5",
     "@types/reselect": "^2.2.0",
     "babel-loader": "^8.1.0",
+    "copy-webpack-plugin": "^5.1.1",
     "css-loader": "^3.5.3",
     "electron": "^8.2.5",
     "electron-builder": "^22.6.0",
@@ -94,6 +96,8 @@
   "dependencies": {
     "@mdi/js": "^5.1.45",
     "@mdi/react": "^1.4.0",
+    "dbus-native": "^0.4.0",
+    "mime": "^2.4.5",
     "react": "^16.13.1",
     "react-dom": "^16.13.1",
     "react-router-dom": "^5.1.2",

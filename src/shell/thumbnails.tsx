@@ -14,6 +14,9 @@ interface Props {
     thumbnailPathFormat?: string;
     onThumbnailPathFormatChanged(format: string): void;
 
+    thumbnailResolution?: ThumbnailResolution;
+    onThumbnailResolutionChanged: (resolution: ThumbnailResolution) => void;
+
     thumbnailSizing: string;
     onThumbnailSizingChanged(sizing: ThumbnailSizing): void;
 }
@@ -21,17 +24,18 @@ interface Props {
 export class Thumbnails extends React.PureComponent<Props> {
     private readonly toggleColumnsScope: () => void;
     private readonly toggleThumbnailerScope: () => void;
-    private readonly toggleThumbnailScalingScope: () => void;
+    private readonly toggleThumbnailSizingScope: () => void;
 
     constructor(props: Props, context: any) {
         super(props, context);
 
         this.toggleColumnsScope = () => this.props.onTogglePreferenceScope("columns");
         this.toggleThumbnailerScope = () => this.props.onTogglePreferenceScope("thumbnail");
-        this.toggleThumbnailScalingScope = () => this.props.onTogglePreferenceScope("thumbnailSizing");
+        this.toggleThumbnailSizingScope = () => this.props.onTogglePreferenceScope("thumbnailSizing");
 
         this.handleColumnsChange = this.handleColumnsChange.bind(this);
         this.handleThumbnailPathFormatChanged = this.handleThumbnailPathFormatChanged.bind(this);
+        this.handleThumbnailResolutionChanged = this.handleThumbnailResolutionChanged.bind(this);
         this.handleThumbnailSizingChanged = this.handleThumbnailSizingChanged.bind(this);
         this.handleThumbnailerChange = this.handleThumbnailerChange.bind(this);
     }
@@ -41,7 +45,6 @@ export class Thumbnails extends React.PureComponent<Props> {
             localPreferences,
             columns,
             thumbnailer,
-            thumbnailPathFormat,
             thumbnailSizing,
         } = this.props;
 
@@ -78,8 +81,20 @@ export class Thumbnails extends React.PureComponent<Props> {
                     <div>Thumbnail path format</div>
                     <input type="text"
                         size={1}
-                        value={thumbnailPathFormat}
+                        value={this.props.thumbnailPathFormat}
                         onChange={this.handleThumbnailPathFormatChanged} />
+                </label>
+            </li>}
+            {thumbnailer === "system" && <li>
+                <label>
+                    <div>Thumbnail resolution</div>
+                    <select
+                        value={this.props.thumbnailResolution || "default"}
+                        onChange={this.handleThumbnailResolutionChanged}
+                    >
+                        <option value="default">Default</option>
+                        <option value="high">High</option>
+                    </select>
                 </label>
             </li>}
             <li>
@@ -95,7 +110,7 @@ export class Thumbnails extends React.PureComponent<Props> {
                 </label>
                 <ScopeToggle
                     active={"thumbnailSizing" in localPreferences}
-                    onClick={this.toggleThumbnailScalingScope} />
+                    onClick={this.toggleThumbnailSizingScope} />
             </li>
         </ul>;
     }
@@ -108,6 +123,12 @@ export class Thumbnails extends React.PureComponent<Props> {
         ev: React.ChangeEvent<HTMLInputElement>
     ): void {
         this.props.onThumbnailPathFormatChanged(ev.target.value);
+    }
+
+    private handleThumbnailResolutionChanged(
+        ev: React.ChangeEvent<HTMLSelectElement>
+    ): void {
+        this.props.onThumbnailResolutionChanged(ev.target.value as ThumbnailResolution);
     }
 
     private handleThumbnailerChange(

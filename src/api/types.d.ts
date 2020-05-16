@@ -57,6 +57,8 @@ type Thumbnailer = "none" | "system" | "mapped";
 
 type ThumbnailSizing = "cover" | "full";
 
+type ThumbnailResolution = "default" | "high";
+
 interface Preferences {
     /**
      * Number of columns in grid view
@@ -82,6 +84,11 @@ interface Preferences {
      * (if thumbnail is set) the format of the thumbnail path
      */
     thumbnailPath?: string;
+
+    /**
+     * Resolution of thumbnails generated from the system thumbnailer
+     */
+    thumbnailResolution?: ThumbnailResolution;
 
     /**
      * How thumbnail images are sized

@@ -18,6 +18,7 @@ interface Props {
 
     thumbnailPath?: string;
     thumbnailScaling: ThumbnailSizing;
+    thumbnailResolution?: ThumbnailResolution;
 }
 
 interface State {
@@ -257,6 +258,7 @@ export class Gallery extends React.PureComponent<Props, State> {
             overscan,
             selected,
             thumbnailPath,
+            thumbnailResolution,
             thumbnailScaling,
         } = this.props;
 
@@ -315,6 +317,7 @@ export class Gallery extends React.PureComponent<Props, State> {
                             anchor={index === this.state.selectAnchor}
                             selected={selected?.has(index) || false}
                             pathFormat={thumbnailPath}
+                            thumbnailResolution={thumbnailResolution}
                             onClick={this.handleClickThumbnail} />
                     })}
                 </ul>

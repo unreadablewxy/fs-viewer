@@ -181,6 +181,7 @@ function inferUsedLocalPreferences(
 
 const parentPreference: {[name in PreferenceName]?: PreferenceName} = {
     "thumbnailPath": "thumbnail",
+    "thumbnailResolution": "thumbnail",
 };
 
 interface Action {
@@ -227,6 +228,7 @@ const triviallyBoundMethods = [
     "handleSetOrderParam",
     "handleSetThumbnailer",
     "handleThumbnailPathFormatChanged",
+    "handleThumbnailResolutionChanged",
     "handleThumbnailSizingChanged",
     "handleToggleScaling",
     "handleSetTransitionInterval",
@@ -356,7 +358,8 @@ export class ShellComponent extends React.Component<Props, State> {
                         thumbnailScaling={preferences.thumbnailSizing}
                         onPickFile={this.handleSelectFile}
                         selected={selectedFiles}
-                        onSelectChanged={this.handleSelectChanged} />
+                        onSelectChanged={this.handleSelectChanged}
+                        thumbnailResolution={preferences.thumbnailResolution} />
                 </Route>
             </Switch>
             <nav onMouseDown={sinkEvent}>
@@ -412,6 +415,8 @@ export class ShellComponent extends React.Component<Props, State> {
                         onThumbnailerChanged={this.handleSetThumbnailer}
                         thumbnailPathFormat={preferences.thumbnailPath}
                         onThumbnailPathFormatChanged={this.handleThumbnailPathFormatChanged}
+                        thumbnailResolution={preferences.thumbnailResolution}
+                        onThumbnailResolutionChanged={this.handleThumbnailResolutionChanged}
                         thumbnailSizing={preferences.thumbnailSizing}
                         onThumbnailSizingChanged={this.handleThumbnailSizingChanged} />}
 
@@ -630,6 +635,10 @@ export class ShellComponent extends React.Component<Props, State> {
 
     handleThumbnailPathFormatChanged(thumbnailPath: string): void {
         this.setPreference({thumbnailPath});
+    }
+
+    handleThumbnailResolutionChanged(thumbnailResolution: ThumbnailResolution): void {
+        this.setPreference({thumbnailResolution});
     }
 
     handleThumbnailSizingChanged(thumbnailSizing: ThumbnailSizing): void {

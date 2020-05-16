@@ -6,11 +6,12 @@ interface Props {
     files: FilesView,
     index: number,
     pathFormat?: string,
+    thumbnailResolution?: ThumbnailResolution;
 }
 
 // This component exists so that we don't need to evaluate regex every time
 // a thumbnail needs a repaint.
-function renderImage({files, index, pathFormat}: Props) {
+function renderImage({files, index, pathFormat, thumbnailResolution}: Props) {
     const fileName = files.names[index];
 
     let url: string;
@@ -35,7 +36,8 @@ function renderImage({files, index, pathFormat}: Props) {
             }
         });
     } else {
-        url = `thumb://${files.path}/${fileName}`;
+        const suffix = thumbnailResolution ? `?r=${thumbnailResolution}` : "";
+        url = `thumb://${files.path}/${fileName}${suffix}`;
     }
 
     return <img src={url} alt="" />;
