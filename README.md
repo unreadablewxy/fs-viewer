@@ -1,5 +1,9 @@
+![Linux-CI](https://github.com/unreadablewxy/fs-viewer/workflows/Linux-CI/badge.svg)
+![Windows-CI](https://github.com/unreadablewxy/fs-viewer/workflows/Windows-CI/badge.svg)
+
 # fs-viewer
-Created to solve one person's image organization woes, this program is for those who wants a tagging image browser like those of "*booru" sites. But isn't a big fan of brittle database files other viewers like to keep.
+
+Created to solve one person's image organization woes, this program is for those who wants a tagging image browser like those of booru sites. But isn't a big fan of brittle database files other viewers like to keep.
 
 What is unique about this program?
 * Tag data is attached to your files via `xattrs` or `alternate streams` so moving or editing files around won't affect your tags
