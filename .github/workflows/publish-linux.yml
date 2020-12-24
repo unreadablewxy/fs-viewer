@@ -4,8 +4,9 @@
 name: Linux-Publish
 
 on:
-  release:
-    types: [created]
+  push:
+    tags:
+    - 'v*'
 
 jobs:
   build:
@@ -27,28 +28,49 @@ jobs:
 
     - run: npm run release
 
-    - name: Upload debian installer
-      uses: actions/upload-artifact@v2.2.1
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        name: deb-installer
-        path: |
-          dist/fs-viewer*.deb
+        tag_name: ${{ github.ref }}
+        release_name: Release ${{ github.ref }}
+        draft: false
+        prerelease: false
+
+    - name: Upload debian installer
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_name: deb-installer
+        asset_path: dist/fs-viewer*.deb
 
     - name: Upload RPM installer
-      uses: actions/upload-artifact@v2.2.1
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        name: rpm-installer
-        path: |
-          dist/fs-viewer*.rpm
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_name: rpm-installer
+        asset_path: dist/fs-viewer*.rpm
 
     - name: Upload ASAR archive
-      uses: actions/upload-artifact@v2.2.1
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        name: asar
-        path: dist/linux-unpacked/resources/app.asar
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_name: linux-asar
+        asset_path: dist/linux-unpacked/resources/app.asar
 
     - name: Upload attribution files
-      uses: actions/upload-artifact@v2.2.1
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        name: attributions
-        path: build/ATTRIBUTION.*.json
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_name: linux-attributions
+        asset_path: build/ATTRIBUTION.*.json

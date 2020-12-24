@@ -4,8 +4,9 @@
 name: Windows-Publish
 
 on:
-  release:
-    types: [created]
+  push:
+    tags:
+    - 'v*'
 
 jobs:
   build:
@@ -30,20 +31,40 @@ jobs:
 
     - run: npm run release
 
-    - name: Upload application installer
-      uses: actions/upload-artifact@v2.2.1
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        name: installer
-        path: dist/fs-viewer*.exe
+        tag_name: ${{ github.ref }}
+        release_name: Release ${{ github.ref }}
+        draft: false
+        prerelease: false
+
+    - name: Upload windows installer
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_name: win-installer
+        asset_path: dist/fs-viewer*.exe
 
     - name: Upload ASAR archive
-      uses: actions/upload-artifact@v2.2.1
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        name: asar
-        path: dist/win-unpacked/resources/app.asar
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_name: win-asar
+        asset_path: dist/win-unpacked/resources/app.asar
 
     - name: Upload attribution files
-      uses: actions/upload-artifact@v2.2.1
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        name: attributions
-        path: build/ATTRIBUTION.*.json
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_name: win-attributions
+        asset_path: build/ATTRIBUTION.*.json
