@@ -11,12 +11,11 @@ on:
 
 jobs:
   build:
-
     runs-on: [windows-latest]
 
     strategy:
       matrix:
-        node-version: [12.x, 13.x]
+        node-version: [14.x]
 
     steps:
     - uses: actions/checkout@v2
@@ -28,5 +27,3 @@ jobs:
         node-version: ${{ matrix.node-version }}
     - run: npm install
     - run: npm run build
-      env:
-        CI: true
