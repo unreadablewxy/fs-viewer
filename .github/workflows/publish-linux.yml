@@ -4,8 +4,6 @@
 name: Linux-Publish
 
 on:
-  pull_request:
-    branches: [ master ]
   release:
     types: [created]
 
@@ -29,12 +27,18 @@ jobs:
 
     - run: npm run release
 
-    - name: Upload application installer
+    - name: Upload debian installer
       uses: actions/upload-artifact@v2.2.1
       with:
-        name: installer
+        name: deb-installer
         path: |
           dist/fs-viewer*.deb
+
+    - name: Upload RPM installer
+      uses: actions/upload-artifact@v2.2.1
+      with:
+        name: rpm-installer
+        path: |
           dist/fs-viewer*.rpm
 
     - name: Upload ASAR archive
