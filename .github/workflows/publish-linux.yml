@@ -4,10 +4,8 @@
 name: Linux-Publish
 
 on:
-  push:
-    branches: [ master ]
-  pull_request:
-    branches: [ master ]
+  release:
+    types: [created]
 
 jobs:
   build:
@@ -29,14 +27,16 @@ jobs:
       uses: actions/upload-artifact@v2.2.1
       with:
         name: installer
-        path: "dist/fs-viewer*.{deb,rpm}"
+        path: |
+          dist/fs-viewer*.deb
+          dist/fs-viewer*.rpm
     - name: Upload ASAR archive
       uses: actions/upload-artifact@v2.2.1
       with:
         name: asar
-        path: "dist/win32-unpacked/resources/app.asar"
+        path: dist/win32-unpacked/resources/app.asar
     - name: Upload attribution files
       uses: actions/upload-artifact@v2.2.1
       with:
         name: attributions
-        path: "dist/win32-unpacked/ATTRIBUTION.*.json"
+        path: build/ATTRIBUTION.*.json
