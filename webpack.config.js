@@ -20,6 +20,8 @@ var api = from("./src/api/index.ts")
 
 var main = from("./src/main/index.ts")
     .to("electron-main", pathBuild, "index.js")
+    .withLicenseHint("pause-stream", "0.0.11", "MIT")
+    .withLicenseHint("put", "0.0.6", "MIT")
     .withNativeModules();
 
 if (platform === "linux") {
