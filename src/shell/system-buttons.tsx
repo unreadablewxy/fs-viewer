@@ -16,8 +16,8 @@ interface State {
 }
 
 export class SystemButtons extends React.PureComponent<Props, State> {
-    constructor(props: Props, context: any) {
-        super(props, context);
+    constructor(props: Props) {
+        super(props);
 
         this.state = {};
         this.handleToggleMaximized = this.handleToggleMaximized.bind(this);
@@ -37,7 +37,7 @@ export class SystemButtons extends React.PureComponent<Props, State> {
         });
     }
 
-    public render() {
+    public render(): React.ReactNode {
         const {api} = this.props;
         const {maximized} = this.state;
 

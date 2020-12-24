@@ -27,7 +27,7 @@ function filterTags(
     searchTerm: string,
 ): ReadonlyArray<Tag> {
     if (searchTerm) {
-        let result = new Array<RankedTag>();
+        const result = new Array<RankedTag>();
         const term = searchTerm.toLowerCase();
         for (const tag of tags) {
             const position = tag.label.indexOf(term);
@@ -71,8 +71,8 @@ export class TagList extends React.PureComponent<Props, State> {
     private readonly focusTagRef: React.RefObject<HTMLLIElement>;
     private readonly inputRef: React.RefObject<HTMLInputElement>;
 
-    constructor(props: Props, ...others: unknown[]) {
-        super(props, ...others);
+    constructor(props: Props) {
+        super(props);
 
         this.focusTagRef = React.createRef();
         this.inputRef = React.createRef();
@@ -113,11 +113,11 @@ export class TagList extends React.PureComponent<Props, State> {
         }
     }
 
-    render() {
+    render(): React.ReactNode {
         const {forceCreate, selectedIndex, inputText, menu, renaming} = this.state;
         const searchTerm = inputText.trim();
         const tags = filterTags(this.props.tags, searchTerm);
-        let cursorIndex = searchTerm && forceCreate
+        const cursorIndex = searchTerm && forceCreate
             ? -1
             : offsetToIndex(selectedIndex, tags.length);
 
@@ -126,7 +126,7 @@ export class TagList extends React.PureComponent<Props, State> {
 
         return <>
             <li onMouseDown={this.handleMouseDown}>
-                <Input ref={this.inputRef as any}
+                <Input ref={this.inputRef}
                     disabled={disabled}
                     value={inputText}
                     onChange={this.handleInputChange}
@@ -249,12 +249,10 @@ export class TagList extends React.PureComponent<Props, State> {
     handleRenameBegin(): void {
         const tag = this.getSelectedTag();
         if (tag) {
-            const patch: Partial<State> = {
+            this.setState({
                 renaming: tag.label,
                 menu: null,
-            };
-
-            this.setState(patch as any);
+            });
         }
     }
 

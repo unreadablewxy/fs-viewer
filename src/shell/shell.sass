@@ -3,7 +3,6 @@
 #shell
     display: block
     height: 100%
-    color: $color-text
 
     > div
         height: 100%
@@ -13,9 +12,6 @@ section
     height: 100%
 
 nav
-    $nav-icon-size: 1.2em
-    $nav-button-size: $space-application-header
-
     position: absolute
     top: 0
     left: 0
@@ -25,49 +21,8 @@ nav
     ul
         @include list-no-defaults
 
-    .background
-        display: inline-block
-        border-radius: 0 0 $space-narrow/2 $space-narrow/2
-        background-color: $color-panel
-        pointer-events: auto
-        transition: box-shadow $time-resize-animation * 2, background-color $time-resize-animation
-
-        &:hover, &.focus
-            box-shadow: 0 0 $space-default $color-panel-shadow
-            background-color: $color-panel-focus
-            backdrop-filter: blur(0.2em)
-
-        &.system
-            float: right
-
-    .menu
-        > li 
-            padding-top: $space-default
-
-            > :first-child
-                flex-grow: 1
-
-        .group
-            display: flex
-            flex-direction: row-reverse
-
-            button
-                height: $space-text-box-height
-                width: $nav-button-size
-
-            > *:first-child
-                flex-grow: 1
-                flex-shrink: 1
-
-            > *:not(:first-child)
-                display: inline-block
-                border-right: 1px solid $color-panel-opaque
-
-        svg
-            @include svg-icon($nav-icon-size)
-
-        .notice
-            margin: $space-default
+    .system.background
+        float: right
 
     .scope-toggle
         width: $nav-button-size
@@ -126,3 +81,27 @@ nav
         text-align: center
         border-radius: $space-narrow
         margin: 0 0 (-$space-narrow) (-$space-default)
+
+// Shared components, These are considered a part of the interface
+.panel
+    .background
+        display: inline-block
+        border-radius: 0 0 $space-narrow/2 $space-narrow/2
+        background-color: $color-panel
+        pointer-events: auto
+        transition: box-shadow $time-resize-animation * 2, background-color $time-resize-animation
+
+    &.focus .background, .background:hover
+        box-shadow: 0 0 $space-default $color-panel-shadow
+        background-color: $color-panel-focus
+        backdrop-filter: blur(0.2em)
+
+.icon-spin
+    animation: ia-spin 1s infinite linear
+
+@keyframes ia-spin
+  0%
+    transform: rotate(0deg)
+
+  100%
+    transform: rotate(359deg)

@@ -1,20 +1,27 @@
 import "./index.sass"
-import {createBrowserHistory} from "history";
+
+// Take exclusive ownership of the API
+if (!window.api)
+    throw new Error("API unset, possibly a bad build");
+
+const api = window.api;
+delete window.api;
+
+// Expose libraries that can't be compartmentalized
 import * as React from "react";
+window.React = React;
+
+import {createBrowserHistory} from "history";
+const history = createBrowserHistory();
+history.replace("/");
+
 import {render} from "react-dom";
 import {Router} from "react-router";
-
-import {Shell} from "./shell";
-
-const loadPrefsTask = window.api.loadPreferences();
-const history = createBrowserHistory();
-const shellElement = document.getElementById("shell");
-
-loadPrefsTask.then(prefs => {
-    const application =
+import {Application} from "./application";
+const application = (
     <Router history={history}>
-        <Shell api={window.api} preferences={prefs} />
-    </Router>;
-    
-    render(application, shellElement);
-});
+        <Application api={api} document={document} />
+    </Router>
+);
+
+render(application, document.getElementById("shell"));

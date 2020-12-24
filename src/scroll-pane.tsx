@@ -45,8 +45,8 @@ export class ScrollPane extends React.PureComponent<Props, State> {
     private readonly content: React.RefObject<HTMLDivElement>;
     private readonly handle: React.RefObject<HTMLDivElement>;
 
-    constructor(props: Props, ...others: unknown[]) {
-        super(props, ...others);
+    constructor(props: Props) {
+        super(props);
 
         this.state = {
             anchor: null,
@@ -64,7 +64,9 @@ export class ScrollPane extends React.PureComponent<Props, State> {
         this.updateHandle = this.updateHandle.bind(this);
     }
 
-    componentDidMount() {
+    componentDidMount(): void {
+        // intentional hack
+        // eslint-disable @typescript-eslint/no-explicit-any
         if (this.props.contentRef)
             (this.props.contentRef as any).current = this.content.current;
 
@@ -75,14 +77,16 @@ export class ScrollPane extends React.PureComponent<Props, State> {
         this.updateHandle();
     }
 
-    componentDidUpdate(prevProps: Props) {
+    componentDidUpdate(prevProps: Props): void {
+        // intentional hack
+        // eslint-disable @typescript-eslint/no-explicit-any
         if (this.props.contentRef !== prevProps.contentRef)
             (this.props.contentRef as any).current = this.content.current;
 
         this.handleContentScroll();
     }
 
-    componentWillUnmount() {
+    componentWillUnmount(): void {
         if (this.handleUpdateTimer)
             clearTimeout(this.handleUpdateTimer);
 
@@ -92,7 +96,7 @@ export class ScrollPane extends React.PureComponent<Props, State> {
         this.removeMouseHandlers();
     }
 
-    render() {
+    render(): React.ReactNode {
         const {children} = this.props;
 
         return <div className="scroll-pane">
@@ -117,7 +121,7 @@ export class ScrollPane extends React.PureComponent<Props, State> {
         }
     }
 
-    handleMouseMove(ev: MouseEvent) {
+    handleMouseMove(ev: MouseEvent): void {
         const contentElement = this.content.current;
         if (contentElement) {
             const scroll = getScroll(contentElement, this.handle.current as HTMLElement);
@@ -134,7 +138,7 @@ export class ScrollPane extends React.PureComponent<Props, State> {
         }
     }
 
-    handleMouseUp(ev: MouseEvent) {
+    handleMouseUp(ev: MouseEvent): void {
         this.setState({
             anchor: null,
             scrollStart: null,

@@ -1,33 +1,33 @@
 import * as React from "react";
-import {ScopeToggle} from "./scope-toggle";
+import {mdiViewGrid} from "@mdi/js";
 
-interface Props {
-    localPreferences: PreferenceNameSet;
-    onTogglePreferenceScope(name: keyof Preferences): void;
+import {ScopeToggle} from "../scope-toggle";
 
+import {Path} from "./constants";
+
+interface PreferenceMappedProps {
     columns: number;
-    onColsChanged(cols: number): void;
-
-    thumbnailer: Thumbnailer;
-    onThumbnailerChanged(thumbnailer: Thumbnailer): void;
-
-    thumbnailPathFormat?: string;
-    onThumbnailPathFormatChanged(format: string): void;
-
+    thumbnail: Thumbnailer;
+    thumbnailSizing: ThumbnailSizing;
+    thumbnailPath?: string;
     thumbnailResolution?: ThumbnailResolution;
-    onThumbnailResolutionChanged: (resolution: ThumbnailResolution) => void;
-
-    thumbnailSizing: string;
-    onThumbnailSizingChanged(sizing: ThumbnailSizing): void;
 }
 
-export class Thumbnails extends React.PureComponent<Props> {
+interface Props extends PreferenceMappedProps {
+
+    onSetPreferences(values: Partial<Preferences>): void;
+
+    localPreferences: PreferenceNameSet;
+    onTogglePreferenceScope(name: keyof Preferences): void;
+}
+
+export class Menu extends React.PureComponent<Props> {
     private readonly toggleColumnsScope: () => void;
     private readonly toggleThumbnailerScope: () => void;
     private readonly toggleThumbnailSizingScope: () => void;
 
-    constructor(props: Props, context: any) {
-        super(props, context);
+    constructor(props: Props) {
+        super(props);
 
         this.toggleColumnsScope = () => this.props.onTogglePreferenceScope("columns");
         this.toggleThumbnailerScope = () => this.props.onTogglePreferenceScope("thumbnail");
@@ -40,12 +40,14 @@ export class Thumbnails extends React.PureComponent<Props> {
         this.handleThumbnailerChange = this.handleThumbnailerChange.bind(this);
     }
 
-    public render() {
+    render(): React.ReactNode {
         const {
             localPreferences,
             columns,
-            thumbnailer,
+            thumbnail,
             thumbnailSizing,
+            thumbnailPath,
+            thumbnailResolution,
         } = this.props;
 
         return <ul className="menu thumbnails">
@@ -65,7 +67,7 @@ export class Thumbnails extends React.PureComponent<Props> {
                 <label>
                     <div>Thumbnailer</div>
                     <select
-                        value={thumbnailer}
+                        value={thumbnail}
                         onChange={this.handleThumbnailerChange}
                     >
                         <option value="system">System</option>
@@ -76,20 +78,20 @@ export class Thumbnails extends React.PureComponent<Props> {
                     active={"thumbnail" in localPreferences}
                     onClick={this.toggleThumbnailerScope} />
             </li>
-            {thumbnailer === "mapped" && <li>
+            {thumbnail === "mapped" && <li>
                 <label>
                     <div>Thumbnail path format</div>
                     <input type="text"
                         size={1}
-                        value={this.props.thumbnailPathFormat}
+                        value={thumbnailPath}
                         onChange={this.handleThumbnailPathFormatChanged} />
                 </label>
             </li>}
-            {thumbnailer === "system" && <li>
+            {thumbnail === "system" && <li>
                 <label>
                     <div>Thumbnail resolution</div>
                     <select
-                        value={this.props.thumbnailResolution || "default"}
+                        value={thumbnailResolution || "default"}
                         onChange={this.handleThumbnailResolutionChanged}
                     >
                         <option value="default">Default</option>
@@ -115,31 +117,58 @@ export class Thumbnails extends React.PureComponent<Props> {
         </ul>;
     }
 
-    private handleColumnsChange(ev: React.ChangeEvent<HTMLInputElement>): void {
-        this.props.onColsChanged(parseInt(ev.target.value));
+    handleColumnsChange(ev: React.ChangeEvent<HTMLInputElement>): void {
+        const columns = parseInt(ev.target.value);
+        this.props.onSetPreferences({columns});
     }
 
-    private handleThumbnailPathFormatChanged(
+    handleThumbnailPathFormatChanged(
         ev: React.ChangeEvent<HTMLInputElement>
     ): void {
-        this.props.onThumbnailPathFormatChanged(ev.target.value);
+        const thumbnailPath = ev.target.value;
+        this.props.onSetPreferences({thumbnailPath});
     }
 
-    private handleThumbnailResolutionChanged(
+    handleThumbnailResolutionChanged(
         ev: React.ChangeEvent<HTMLSelectElement>
     ): void {
-        this.props.onThumbnailResolutionChanged(ev.target.value as ThumbnailResolution);
+        const thumbnailResolution = ev.target.value as ThumbnailResolution;
+        this.props.onSetPreferences({thumbnailResolution});
     }
 
-    private handleThumbnailerChange(
+    handleThumbnailerChange(
         ev: React.ChangeEvent<HTMLSelectElement>
     ): void {
-        this.props.onThumbnailerChanged(ev.target.value as Thumbnailer);
+        const thumbnail = ev.target.value as Thumbnailer;
+        this.props.onSetPreferences({thumbnail});
     }
 
-    private handleThumbnailSizingChanged(
+    handleThumbnailSizingChanged(
         ev: React.ChangeEvent<HTMLSelectElement>
     ): void {
-        this.props.onThumbnailSizingChanged(ev.target.value as ThumbnailSizing);
+        const thumbnailSizing = ev.target.value as ThumbnailSizing;
+        this.props.onSetPreferences({thumbnailSizing});
     }
 }
+
+export const Definition = {
+    id: "thumbnails",
+    icon: mdiViewGrid,
+    label: "Thumbnails",
+    path: [Path],
+    requireDirectory: true,
+    component: Menu,
+    selectPreferences: ({
+        columns,
+        thumbnail,
+        thumbnailSizing,
+        thumbnailPath,
+        thumbnailResolution,
+    }: Preferences): PreferenceMappedProps => ({
+        columns,
+        thumbnail,
+        thumbnailSizing,
+        thumbnailPath,
+        thumbnailResolution,
+    }),
+};

@@ -1,4 +1,4 @@
-import {app, protocol, FilePathWithHeaders, Request} from "electron";
+import {app, protocol, FilePathWithHeaders, ProtocolRequest} from "electron";
 import {createHash} from "crypto";
 import {sessionBus, Interface} from "dbus-native";
 import {getType as getMimeType} from "mime";
@@ -66,9 +66,9 @@ function submitBatch(thumbnailer: Thumbnailer, size: ThumbnailResolution) {
     batchTimer = null;
     const batch = unsubmitted;
     unsubmitted = createBatch();
-    const resolution = resolutionMapping[size];
+    const resolution = resolutionMapping[size] || resolutionMapping.default;
 
-    function callback(err: Error | null, handle: number) {
+    function callback(err: Error | null) {
         if (err)
             console.error("Unable to submit thumbnailing request", err);
         else for (let n = batch.callbacks.length; n --> 0;)
@@ -89,7 +89,7 @@ function submitBatch(thumbnailer: Thumbnailer, size: ThumbnailResolution) {
 
 function handleThumbnailRequest(
     thumbnailer: Thumbnailer,
-    request: Request,
+    request: ProtocolRequest,
     callback: RequestCallback,
 ): void {
     const prefixLength = 8; // len("thumb://")
@@ -118,7 +118,7 @@ function handleResponse(
     process: (uri: string, pr: PendingRequest) => void,
 ) {
     for (let n = uris.length; n --> 0;) {
-        let path = uris[n];
+        const path = uris[n];
 
         const pr = pendingRequests[path];
         if (!pr) continue
@@ -137,25 +137,28 @@ function handleReady(handle: number, uris: string[]): void {
     });
 }
 
-function handleError(handle: number, uris: string[], errorCode: number, message: string): void {
+function handleError(handle: number, uris: string[]): void {
     handleResponse(handle, uris, (uri, pr) => pr.callback(""));
 }
 
-export function registerThumbnailProtocol(): void {
-    sessionBus()
-        .getService("org.freedesktop.thumbnails.Thumbnailer1")
-        .getInterface<Thumbnailer>(
-            "/org/freedesktop/thumbnails/Thumbnailer1",
-            "org.freedesktop.thumbnails.Thumbnailer1",
-            (err, thumbnailer) => {
+const interfaceID = "org.freedesktop.thumbnails.Thumbnailer1";
+const interfacePath = "/org/freedesktop/thumbnails/Thumbnailer1";
+
+export function registerThumbnailProtocol(): Promise<void> {
+    return new Promise((resolve, reject) => {
+        sessionBus()
+            .getService(interfaceID)
+            .getInterface<Thumbnailer>(interfacePath, interfaceID, (err, thumbnailer) => {
                 if (err) {
-                    console.error("Thumbnailer startup failure", err);
+                    reject(new Error(`Thumbnailer startup failed: ${err}`));
                 } else {
                     thumbnailer.on("Error", handleError);
                     thumbnailer.on("Ready", handleReady);
 
                     const handler = handleThumbnailRequest.bind(null, thumbnailer);
                     protocol.registerFileProtocol("thumb", handler);
+                    resolve();
                 }
             });
+    });
 }

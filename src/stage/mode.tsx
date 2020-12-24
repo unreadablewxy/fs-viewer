@@ -1,13 +1,20 @@
 import "./stage.sass";
 import * as React from "react";
-import {Center} from "./center";
 
-interface Props {
-    files: FilesView;
-    fileIndex: number;
+import {BrowsingService} from "../browsing";
+
+import {Path} from "./constants";
+import {Center} from "./center";
+import {TransitionService} from "./transition-service";
+
+interface PreferenceMappedProps {
     preload: number;
-    transitionInterval: number;
-    focusTime: number;
+}
+
+interface Props extends PreferenceMappedProps {
+    browsing: BrowsingService;
+    transition: TransitionService;
+
     showActualSize: boolean;
     onSetFileIndex: (index: number) => void;
 }
@@ -20,7 +27,7 @@ interface State {
 const videoFileSuffices = new Set(["avi", "mkv", "mp4", "mov", "webm"]);
 
 function loadImage(files: FilesView, index: number): HTMLImageElement {
-    var image = document.createElement("img");
+    const image = document.createElement("img");
     image.src = `file://${files.path}/${files.names[index]}`;
     return image;
 }
@@ -32,73 +39,36 @@ export class Stage extends React.PureComponent<Props, State> {
 
     private probeRequestController?: AbortController;
 
-    private transitionTimer?: number;
-
-    constructor(props: Props, context: any) {
-        super(props, context);
+    constructor(props: Props) {
+        super(props);
 
         this.state = {};
 
         this.container = React.createRef<HTMLElement>();
 
         this.handleDisableButtons = this.handleDisableButtons.bind(this);
+        this.handleFocusedFileChanged = this.handleFocusedFileChanged.bind(this);
         this.handleImageError = this.handleImageError.bind(this);
         this.handleKeyDownShell = this.handleKeyDownShell.bind(this);
+        this.handleTransition = this.handleTransition.bind(this);
         this.navigateNext = this.navigateNext.bind(this);
         this.navigatePrev = this.navigatePrev.bind(this);
-
-        this.componentDidMount = this.ensureFocus.bind(this);
     }
 
-    private ensureFocus(): void {
-        if (this.container.current)
-            this.container.current.focus();
+    componentDidMount(): void {
+        this.props.browsing.on("filefocus", this.handleFocusedFileChanged);
+        this.props.transition.on("transition", this.handleTransition);
     }
 
-    componentDidUpdate(p: Props): void {
-        let {fileIndex, files, preload, transitionInterval} = this.props;
-        if (p.fileIndex != fileIndex) {
-            if (this.probeRequestController) {
-                this.probeRequestController.abort();
-                delete this.probeRequestController;
-            }
-
-            if (preload > 0) {
-                ++preload;
-    
-                const preloaded: Array<HTMLImageElement> = [];
-    
-                let n = Math.min(files.names.length, fileIndex + preload);
-                while (--n > fileIndex)
-                    preloaded.push(loadImage(files, n));
-    
-                n = Math.max(-1, fileIndex - preload);
-                while (++n < fileIndex)
-                    preloaded.push(loadImage(files, n));
-    
-                this.preloadedImages = preloaded;
-            }
-        }
-
-        if (p.transitionInterval !== transitionInterval) {
-            if (this.transitionTimer)
-                clearInterval(this.transitionTimer);
-
-            if (transitionInterval === 0) {
-                delete this.transitionTimer;
-            } else {
-                this.transitionTimer = window.setInterval(
-                    () => this.navigateNext(),
-                    transitionInterval);
-            }
-        }
-
-        if (p.focusTime !== this.props.focusTime)
-            this.ensureFocus();
+    componentWillUnmount(): void {
+        this.props.browsing.off("filefocus", this.handleFocusedFileChanged);
+        this.props.transition.off("transition", this.handleTransition);
     }
 
-    render() {
-        const {files, fileIndex, showActualSize} = this.props;
+    render(): React.ReactNode {
+        const {files, focusedFile} = this.props.browsing;
+        const fileIndex = focusedFile || 0;
+
         const {dragging, fileType} = this.state;
         const fileName = files.names[fileIndex];
 
@@ -111,6 +81,7 @@ export class Stage extends React.PureComponent<Props, State> {
         }
 
         const fileUrl = `file://${files.path}/${fileName}`;
+        const showActualSize = false; // TODO: load ths from somewhere
         const cssClass = showActualSize ? "stage" : "stage fit";
 
         return <section className={cssClass}
@@ -134,14 +105,21 @@ export class Stage extends React.PureComponent<Props, State> {
         </section>;
     }
 
-    navigateNext(): void {
-        const {fileIndex, files, onSetFileIndex} = this.props;
-        fileIndex < files.names.length - 1 && onSetFileIndex(fileIndex + 1);
+    navigatePrev(): void {
+        const {focusedFile, setFocus} = this.props.browsing;
+        if (focusedFile !== null && focusedFile > 0)
+            setFocus(focusedFile - 1)
     }
 
-    navigatePrev(): void {
-        const {fileIndex, onSetFileIndex} = this.props;
-        fileIndex > 0 && onSetFileIndex(fileIndex - 1);
+    navigateNext(): boolean {
+        const {focusedFile, setFocus, files} = this.props.browsing;
+        if (focusedFile !== null) {
+            const canNavigate = focusedFile < files.names.length - 1;
+            canNavigate && setFocus(focusedFile + 1);
+            return canNavigate;
+        }
+
+        return false;
     }
 
     handleDisableButtons(dragging: boolean): void {
@@ -149,10 +127,12 @@ export class Stage extends React.PureComponent<Props, State> {
     }
 
     handleImageError(): void {
-        const {files, fileIndex} = this.props;
+        const {files, focusedFile} = this.props.browsing;
+        if (focusedFile === null)
+            return;
 
         this.probeRequestController = new AbortController();
-        const url = `file://${files.path}/${files.names[fileIndex]}`;
+        const url = `file://${files.path}/${files.names[focusedFile]}`;
         fetch(url, {
             method: "HEAD",
             cache: "default",
@@ -179,4 +159,48 @@ export class Stage extends React.PureComponent<Props, State> {
             break;
         }
     }
+
+    handleTransition(): void {
+        if (!this.navigateNext()) {
+            this.props.transition.setInterval(-1);
+        }
+    }
+
+    private handleFocusedFileChanged(fileIndex: number | null): void {
+        if (this.probeRequestController) {
+            this.probeRequestController.abort();
+            delete this.probeRequestController;
+        }
+
+        if (fileIndex === null)
+            return;
+    
+        const {files} = this.props.browsing;
+        let {preload} = this.props;
+        if (preload > 0) {
+            ++preload;
+
+            const preloaded: Array<HTMLImageElement> = [];
+
+            let n = Math.min(files.names.length, fileIndex + preload);
+            while (--n > fileIndex)
+                preloaded.push(loadImage(files, n));
+
+            n = Math.max(-1, fileIndex - preload);
+            while (++n < fileIndex)
+                preloaded.push(loadImage(files, n));
+
+            this.preloadedImages = preloaded;
+        }
+
+        this.forceUpdate();
+    }
 }
+
+export const Definition = {
+    id: "stage",
+    path: Path,
+    services: ["browsing", "transition"],
+    component: Stage,
+    selectPreferences: ({preload}: Preferences): PreferenceMappedProps => ({preload}),
+};

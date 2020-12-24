@@ -8,24 +8,32 @@ const platform = os.platform();
 const pathBuild = path.resolve(__dirname, "build");
 
 var renderer = from("./src/index.tsx")
-    .withCss()
+    .to("web", pathBuild, "[chunkhash].js", "dev.js")
+    .withCss("index.css")
     .withReact()
     .withHtml("./src/index.html", "index.html")
-    .to("electron-renderer", pathBuild, "[chunkhash].js", "dev.js");
+    .withNoParse(/src(\\|\/)application(\\|\/)esimport.js$/);
 
 var api = from("./src/api/index.ts")
-    .withNativeModules()
-    .to("electron-preload", pathBuild, "api.js");
+    .to("electron-preload", pathBuild, "api.js")
+    .withNativeModules();
 
 var main = from("./src/main/index.ts")
+    .to("electron-main", pathBuild, "index.js")
+    .withLicenseHint("pause-stream", "0.0.11", "MIT")
+    .withLicenseHint("put", "0.0.6", "MIT")
     .withNativeModules();
 
 if (platform === "linux") {
-    main = main.withFiles([
-        "node_modules/abstract-socket/build/Release/bindings.node"
-    ]);
+    main = main.withFiles({
+        patterns: [
+            { from: "node_modules/abstract-socket/build/Release/bindings.node" },
+        ],
+    });
 }
 
-main = main.to("electron-main", pathBuild, "index.js");
-
-module.exports = [renderer, api, main];
+module.exports = [
+    renderer.build(),
+    api.build(),
+    main.build(),
+];

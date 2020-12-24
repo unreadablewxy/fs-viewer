@@ -6,7 +6,7 @@ import {
 } from "@mdi/js";
 
 interface Props {
-    ref?: React.Ref<any>,
+    ref?: React.Ref<HTMLElement>,
     id: number,
     index: number,
     children: string,
@@ -35,7 +35,7 @@ function renderInput({renaming, onRename, onRenameEnd}: Props) {
         autoFocus />
 }
 
-function renderItem(props: Props, ref?: React.Ref<any>) {
+function renderItem(props: Props, ref?: React.Ref<HTMLElement>): JSX.Element {
     const {id, index, children, focused, active, renaming, onClick, onContextMenu} = props;
 
     let className = focused ? "focus" : "";
@@ -53,7 +53,7 @@ function renderItem(props: Props, ref?: React.Ref<any>) {
     }
 
     return <li
-        ref={ref}
+        ref={ref as React.Ref<HTMLLIElement>}
         className={className || undefined}
         onClick={clickHandler}
         onContextMenu={menuHandler}

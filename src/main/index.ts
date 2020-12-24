@@ -25,6 +25,7 @@ function createWindow(): void {
         backgroundColor: "#000000",
         webPreferences: {
             preload: path.join(app.getAppPath(), "build/api.js"),
+            enableRemoteModule: true,
         },
     });
 
@@ -40,8 +41,9 @@ function createWindow(): void {
 }
 
 function onReady(): void {
-    registerThumbnailProtocol();
-    createWindow();
+    registerThumbnailProtocol().then(() => {
+        createWindow();
+    });
 }
 
 // This method will be called when Electron has finished

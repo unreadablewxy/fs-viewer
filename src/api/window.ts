@@ -6,6 +6,8 @@ window.addEventListener("keydown", ev => {
 });
 
 ["maximize", "unmaximize"].forEach(eventName => {
+    // TypeScript can't properly deduces constant arg types
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     remote.getCurrentWindow().on(eventName as any, () => {
         const event = new CustomEvent(eventName);
         window.dispatchEvent(event);

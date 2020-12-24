@@ -1,1 +1,1 @@
-export function registerThumbnailProtocol(): void;
+export function registerThumbnailProtocol(): Promise<void>;
