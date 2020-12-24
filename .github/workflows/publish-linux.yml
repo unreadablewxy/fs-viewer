@@ -4,9 +4,8 @@
 name: Linux-Publish
 
 on:
-  push:
-    tags:
-    - 'v*'
+  release:
+    types: [published]
 
 jobs:
   build:
@@ -28,49 +27,50 @@ jobs:
 
     - run: npm run release
 
-    - name: Create Release
-      id: create_release
-      uses: actions/create-release@v1
+    - run: zip --junk-paths build/ATTRIBUTION.linux.zip build/ATTRIBUTION.*.json
+
+    - name: Get release
+      id: get_release
+      uses: bruceadams/get-release@v1.2.2
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        tag_name: ${{ github.ref }}
-        release_name: Release ${{ github.ref }}
-        draft: false
-        prerelease: false
+        GITHUB_TOKEN: ${{ github.token }}
 
     - name: Upload debian installer
       uses: actions/upload-release-asset@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_name: deb-installer
-        asset_path: dist/fs-viewer*.deb
+        upload_url: ${{ steps.get_release.outputs.upload_url }}
+        asset_name: fs-viewer-linux-${{ github.event.release.tag_name }}.deb
+        asset_path: dist/fs-viewer_${{ github.event.release.tag_name }}_amd64.deb
+        asset_content_type: application/octlet-stream
 
     - name: Upload RPM installer
       uses: actions/upload-release-asset@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_name: rpm-installer
-        asset_path: dist/fs-viewer*.rpm
+        upload_url: ${{ steps.get_release.outputs.upload_url }}
+        asset_name: fs-viewer-linux-${{ github.event.release.tag_name }}.rpm
+        asset_path: dist/fs-viewer-${{ github.event.release.tag_name }}.x86_64.rpm
+        asset_content_type: application/octlet-stream
 
     - name: Upload ASAR archive
       uses: actions/upload-release-asset@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_name: linux-asar
+        upload_url: ${{ steps.get_release.outputs.upload_url }}
+        asset_name: fs-viewer-linux-${{ github.event.release.tag_name }}.app.asar
         asset_path: dist/linux-unpacked/resources/app.asar
+        asset_content_type: application/octlet-stream
 
     - name: Upload attribution files
       uses: actions/upload-release-asset@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_name: linux-attributions
-        asset_path: build/ATTRIBUTION.*.json
+        upload_url: ${{ steps.get_release.outputs.upload_url }}
+        asset_name: fs-viewer-linux-attributions-${{ github.event.release.tag_name }}.zip
+        asset_path: build/ATTRIBUTION.linux.zip
+        asset_content_type: application/zip

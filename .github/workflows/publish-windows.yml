@@ -4,9 +4,8 @@
 name: Windows-Publish
 
 on:
-  push:
-    tags:
-    - 'v*'
+  release:
+    types: [published]
 
 jobs:
   build:
@@ -31,40 +30,40 @@ jobs:
 
     - run: npm run release
 
-    - name: Create Release
-      id: create_release
-      uses: actions/create-release@v1
+    - run: Compress-Archive build/ATTRIBUTION.*.json build/ATTRIBUTION.win.zip
+
+    - name: Get release
+      id: get_release
+      uses: bruceadams/get-release@v1.2.2
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        tag_name: ${{ github.ref }}
-        release_name: Release ${{ github.ref }}
-        draft: false
-        prerelease: false
+        GITHUB_TOKEN: ${{ github.token }}
 
     - name: Upload windows installer
       uses: actions/upload-release-asset@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_name: win-installer
-        asset_path: dist/fs-viewer*.exe
+        upload_url: ${{ steps.get_release.outputs.upload_url }}
+        asset_name: fs-viewer-win-${{ github.event.release.tag_name }}.exe
+        asset_path: dist/fs-viewer Setup ${{ github.event.release.tag_name }}.exe
+        asset_content_type: application/octet-stream
 
     - name: Upload ASAR archive
       uses: actions/upload-release-asset@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_name: win-asar
+        upload_url: ${{ steps.get_release.outputs.upload_url }}
+        asset_name: fs-viewer-win-${{ github.event.release.tag_name }}.app.asar
         asset_path: dist/win-unpacked/resources/app.asar
+        asset_content_type: application/octet-stream
 
     - name: Upload attribution files
       uses: actions/upload-release-asset@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_name: win-attributions
-        asset_path: build/ATTRIBUTION.*.json
+        upload_url: ${{ steps.get_release.outputs.upload_url }}
+        asset_name: fs-viewer-win-attributions-${{ github.event.release.tag_name }}.zip
+        asset_path: build/ATTRIBUTION.win.zip
+        asset_content_type: application/zip
