@@ -19,12 +19,16 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
+
     - name: Use Node.js ${{ matrix.node-version }}
       uses: actions/setup-node@v1
       with:
         node-version: ${{ matrix.node-version }}
+
     - run: npm install
+
     - run: npm run release
+
     - name: Upload application installer
       uses: actions/upload-artifact@v2.2.1
       with:
@@ -32,11 +36,13 @@ jobs:
         path: |
           dist/fs-viewer*.deb
           dist/fs-viewer*.rpm
+
     - name: Upload ASAR archive
       uses: actions/upload-artifact@v2.2.1
       with:
         name: asar
         path: dist/linux-unpacked/resources/app.asar
+
     - name: Upload attribution files
       uses: actions/upload-artifact@v2.2.1
       with:
