@@ -42,7 +42,7 @@ jobs:
       uses: actions/upload-artifact@v2.2.1
       with:
         name: asar
-        path: dist/windows-unpacked/resources/app.asar
+        path: dist/win-unpacked/resources/app.asar
 
     - name: Upload attribution files
       uses: actions/upload-artifact@v2.2.1
