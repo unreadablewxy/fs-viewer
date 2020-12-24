@@ -12,7 +12,7 @@ var renderer = from("./src/index.tsx")
     .withCss("index.css")
     .withReact()
     .withHtml("./src/index.html", "index.html")
-    .withNoParse(/src\/application\/esimport.js$/);
+    .withNoParse(/src(\\|\/)application(\\|\/)esimport.js$/);
 
 var api = from("./src/api/index.ts")
     .to("electron-preload", pathBuild, "api.js")
