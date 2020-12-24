@@ -43,11 +43,6 @@ interface OpenDirectoryResult {
     files: FilesView;
 
     /**
-     * The tags that are available in the directory
-     */
-    tags: TagNamespace;
-
-    /**
      * Location specific preference overrides (if any)
      */
     preferences: Partial<Preferences>;
@@ -99,12 +94,13 @@ interface Preferences {
      * How many files to preload in both directions in stage mode
      */
     preload: number;
+
+    /**
+     * The names of extensions to use
+     */
+    extensions: string[];
 }
 
 type PreferenceName = keyof Preferences;
 
 type PreferenceNameSet = {[name in PreferenceName]?: 1};
-
-interface Window {
-    api: Readonly<API>;
-}

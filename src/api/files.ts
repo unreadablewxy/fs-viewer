@@ -13,8 +13,9 @@ import readline from "readline";
 import {getAttr, setAttr, removeAttr} from "./attrs";
 import {promisify} from "util";
 
-import {Cancellation} from "./error";
 import {loadPreferenceFile, rcFileName as preferencesFile} from "./preferences";
+
+export {joinPath};
 
 const readdirAsync = promisify(readdir);
 const unlinkAsync = promisify(unlink);
@@ -29,51 +30,68 @@ function assertValidTagID(id: number) {
         throw Error(`Invalid tag ID ${id}`);
 }
 
-function loadTagNamespace(path: string): Promise<TagNamespace> {
-    return new Promise((resolve, reject) => {
-        let lineReader = readline.createInterface({
-            input: createReadStream(path),
+export function reduceTextFile<T>(
+    path: string,
+    visitor: (value: T, line: string) => boolean,
+    initial: T,
+): Promise<T> {
+    return new Promise<T>((resolve, reject) => {
+        const lineReader = readline.createInterface({
+            input: createReadStream(path, {encoding: "utf8"}),
         });
 
-        let lineNum = 0;
-        let result: TagNamespace = {
-            identifier: 0,
-            names: new Map<number, string>(),
-            nextId: 0,
-        };
-
         lineReader.on("close", () => {
-            if (!result.nextId)
-                result.nextId = lineNum - 1;
-
-            resolve(result);
+            resolve(initial);
         });
 
         lineReader.on("line", line => {
-            switch (lineNum++) {
-            case 0:
-                if (line !== tagsNSFileHeader) {
-                    lineReader.removeAllListeners();
+            try {
+                if (!visitor(initial, line))
                     lineReader.close();
-                    reject(new Error(`Bad header in namespace file: ${path}`));
-                }
-                break;
-
-            case 1:
-                result.identifier = parseInt(line, 16);
-                break;
-
-            default:
-                const id = lineNum - 2;
-                if (line)
-                    result.names.set(id, line);
-                else if (!result.nextId)
-                    result.nextId = id;
-
-                break;
+            } catch (e) {
+                lineReader.removeAllListeners();
+                lineReader.close();
+                reject(e);
             }
         });
     });
+}
+
+async function loadTagNamespace(path: string): Promise<TagNamespace> {
+    let lineNum = 0;
+    const result = await reduceTextFile<TagNamespace>(path, (r, line) => {
+        switch (lineNum++) {
+        case 0:
+            if (line !== tagsNSFileHeader)
+                throw new Error(`Bad header in namespace file: ${path}`);
+            break;
+
+        case 1:
+            r.identifier = parseInt(line, 16);
+            break;
+
+        default: {
+                const id = lineNum - 2;
+                if (line)
+                    r.names.set(id, line);
+                else if (!r.nextId)
+                    r.nextId = id;
+
+                break;
+            }
+        }
+
+        return true;
+    }, {
+        identifier: 0,
+        names: new Map<number, string>(),
+        nextId: 0,
+    });
+
+    if (!result.nextId)
+        result.nextId = lineNum - 1;
+
+    return result;
 }
 
 const tagsNSFile = ".tagnames";
@@ -100,7 +118,7 @@ export function saveTagNamespace(directory: string, ns: TagNamespace): Promise<v
         const filePath = findTagNamespaceFile(directory)
             || joinPath(directory, tagsNSFile);
 
-        let stream = createWriteStream(filePath);
+        const stream = createWriteStream(filePath);
         stream.on("close", resolve);
         stream.on("error", reject);
 
@@ -120,17 +138,19 @@ export function saveTagNamespace(directory: string, ns: TagNamespace): Promise<v
     });
 }
 
-export async function openDirectory(): Promise<OpenDirectoryResult> {
-    const {canceled, filePaths} = await remote.dialog.showOpenDialog(
-        remote.getCurrentWindow(),
-        {
-            properties: ["openDirectory"],
+export function openTagsNamespace(path: string): Promise<TagNamespace> {
+    const namespacePath = findTagNamespaceFile(path);
+    if (!namespacePath)
+        return Promise.resolve({
+            identifier: Math.ceil(Math.random() * 0xFFFF),
+            names: new Map(),
+            nextId: 1,
         });
 
-    if (canceled)
-        throw new Cancellation();
+    return loadTagNamespace(namespacePath);
+}
 
-    const path = filePaths[0];
+export async function openDirectory(path: string): Promise<OpenDirectoryResult> {
     const files = await readdirAsync(path, {withFileTypes: true});
 
     const result: OpenDirectoryResult = {
@@ -138,16 +158,10 @@ export async function openDirectory(): Promise<OpenDirectoryResult> {
             path,
             names: [],
         },
-        tags: {
-            identifier: Math.ceil(Math.random() * 0xFFFF),
-            names: new Map(),
-            nextId: 1,
-        },
         preferences: {},
     };
 
     let loadPrefsTask: Promise<Partial<Preferences>> | null = null;
-    let loadTagsNSTask: Promise<TagNamespace> | null = null;
 
     for (let n = 0; n < files.length; ++n) {
         const entry = files[n];
@@ -158,24 +172,12 @@ export async function openDirectory(): Promise<OpenDirectoryResult> {
                 loadPrefsTask = loadPreferenceFile(joinPath(path, fileName));
                 break;
 
-            case tagsNSFile:
-                loadTagsNSTask = loadTagNamespace(joinPath(path, fileName));
-                break;
-
             default:
                 if (fileName[0] !== ".")
                 result.files.names.push(fileName);
                 break;
             }
         }
-    }
-
-    if (loadTagsNSTask) {
-        result.tags = await loadTagsNSTask;
-    } else {
-        const namespacePath = findTagNamespaceFile(path);
-        if (namespacePath)
-            result.tags = await loadTagNamespace(namespacePath);
     }
 
     if (loadPrefsTask)
@@ -230,45 +232,40 @@ function writeTagsIndex(
     });
 }
 
-export function loadTagsIndex(directory: string, id: TagID): Promise<Set<string>> {
+export async function loadTagsIndex(directory: string, id: TagID): Promise<Set<string>> {
     assertValidTagID(id);
 
-    return new Promise((resolve, reject) => {
-        const filePath = getTagsIndexPath(directory, id);
-        if (existsSync(filePath)) {
-            const lineReader = readline.createInterface({
-                input: createReadStream(filePath, {encoding: "utf8"}),
-            });
+    const filePath = getTagsIndexPath(directory, id);
+    if (existsSync(filePath)) {
+        let lineNum = 0;
+        return await reduceTextFile(filePath, (r, line) => {
+            if (!lineNum++ && line !== indexHeader)
+                throw new Error("Invalid index header detected");
 
-            let lineNum = 0;
-            const result = new Set<string>();
-            lineReader.on("close", () => resolve(result));
-            lineReader.on("line", line => {
-                if (!lineNum++ && line !== indexHeader) {
-                    lineReader.removeAllListeners();
-                    lineReader.close();
-                    reject(new Error("Invalid index header detected"));
-                }
+            const trimmed = line.trim();
+            if (line.length !== trimmed.length)
+                r.delete(trimmed);
+            else
+                r.add(line);
 
-                const trimmed = line.trim();
-                if (line.length !== trimmed.length)
-                    result.delete(trimmed);
-                else
-                    result.add(line);
-            });
-        } else {
-            const dirPath = joinPath(directory, tagsIndexDirectory);
-            if (!existsSync(dirPath))
-                mkdirSync(dirPath, {recursive: true});
+            return true;
+        }, new Set<string>());
+    }
 
-            rebuildTagIndex(directory, id).then(
-                index => {
-                    resolve(index);
-                    writeTagsIndex(getTagsIndexPath(directory, id), index);
-                },
-                reject);
-        }
-    });
+    const dirPath = joinPath(directory, tagsIndexDirectory);
+    if (!existsSync(dirPath))
+        mkdirSync(dirPath, {recursive: true});
+
+    const index = await rebuildTagIndex(directory, id);
+    writeTagsIndex(getTagsIndexPath(directory, id), index);
+    return index;
+}
+
+export async function saveTagsIndex(directory: string, id: TagID, files: Set<string>): Promise<void> {
+    assertValidTagID(id);
+
+    const filePath = getTagsIndexPath(directory, id);
+    return writeTagsIndex(filePath, files, "w");
 }
 
 async function checkFileUntagged(path: string): Promise<boolean> {
@@ -319,7 +316,7 @@ export async function loadFileTagIDs(
         return Promise.reject(e);
     }
 
-    let result: Tags = {
+    const result: Tags = {
         namespace: data.readUInt16LE(0),
         ids: new Set<TagID>(),
     };
@@ -334,7 +331,6 @@ export function saveFileTagIDs(
     directory: string,
     file: string,
     tags: null | Tags,
-    changed: number[],
 ): Promise<void> {
     const path = joinPath(directory, file);
 
@@ -352,58 +348,7 @@ export function saveFileTagIDs(
         result = removeAttr(path, tagsAttribute);
     }
 
-    for (let n = 0; n < changed.length; ++n) {
-        const id = changed[n];
-        const indexPath = getTagsIndexPath(directory, id);
-        if (existsSync(indexPath)) {
-            const value = tags && tags.ids.has(id) ? file : ` ${file}`;
-            writeTagsIndex(indexPath, [value], "a");
-        }
-    }
-
     return result;
-}
-
-export async function addTagToFiles(
-    directory: string,
-    files: string[],
-    namespaceID: NamespaceID,
-    tag: TagID,
-): Promise<void> {
-    const tasks = new Array(files.length);
-    for (let n = files.length; n --> 0;)
-        tasks[n] = ensureTagSet(directory, files[n], namespaceID, tag);
-
-    const indexPath = getTagsIndexPath(directory, tag);
-    await Promise.all(tasks);
-    if (existsSync(indexPath))
-        await writeTagsIndex(indexPath, files, "a");
-}
-
-export function removeTagFromFiles(
-    directory: string,
-    files: string[],
-    tag: TagID,
-): Promise<void> {
-    const tasks = new Array(files.length);
-    for (let n = files.length; n --> 0;)
-    tasks[n] = ensureTagCleared(directory, files[n], tag);
-
-    return Promise.all(tasks) as unknown as Promise<void>;
-}
-
-async function ensureTagSet(
-    directory: string,
-    fileName: string,
-    namespace: NamespaceID,
-    id: TagID,
-): Promise<void> {
-    let tags = await loadFileTagIDs(directory, fileName);
-    if (!tags)
-        tags = {namespace, ids: new Set<number>()};
-
-    if (tags.ids.size !== tags.ids.add(id).size)
-        return saveFileTagIDs(directory, fileName, tags, []);
 }
 
 async function ensureTagCleared(
@@ -413,9 +358,10 @@ async function ensureTagCleared(
 ): Promise<void> {
     const tags = await loadFileTagIDs(directory, fileName);
     if (tags && tags.ids.delete(id))
-        return saveFileTagIDs(directory, fileName, tags, []);
+        return saveFileTagIDs(directory, fileName, tags);
 }
 
+// TODO: this is the responsibility of the cache, move it there
 export async function deleteTag(
     directory: string,
     tag: TagID,

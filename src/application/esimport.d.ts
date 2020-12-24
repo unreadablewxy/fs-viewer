@@ -1,0 +1,1 @@
+export function importModule<T>(path: string): Promise<T>;

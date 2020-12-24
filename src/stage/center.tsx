@@ -19,8 +19,8 @@ interface State {
 type DIVMouseEvent = React.MouseEvent<HTMLDivElement, MouseEvent>;
 
 export class Center extends React.PureComponent<Props, State> {
-    constructor(props: Props, context: any) {
-        super(props, context);
+    constructor(props: Props) {
+        super(props);
 
         this.state = {
             scale: 1.0,
@@ -37,7 +37,7 @@ export class Center extends React.PureComponent<Props, State> {
         this.handleMouseWheel = this.handleMouseWheel.bind(this);
     }
 
-    public render() {
+    public render(): React.ReactNode {
         const {anchor, offset, scale} = this.state;
         const otherProps: React.HTMLAttributes<HTMLDivElement> = {};
         if (anchor)
@@ -57,7 +57,7 @@ export class Center extends React.PureComponent<Props, State> {
         </div>;
     }
 
-    private handleMouseUp(ev: DIVMouseEvent): void {
+    private handleMouseUp(): void {
         this.setState({anchor: null});
         this.props.onDrag(false);
     }

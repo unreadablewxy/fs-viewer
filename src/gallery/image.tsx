@@ -24,9 +24,10 @@ function renderImage({files, index, pathFormat, thumbnailResolution}: Props) {
                 return fileName;
 
             case "1":
-            case "fileStem":
-                var extensionStart = fileName.lastIndexOf('.');
+            case "fileStem": {
+                const extensionStart = fileName.lastIndexOf('.');
                 return extensionStart === -1 ? fileName : fileName.slice(0, extensionStart);
+            }
 
             case "directory":
                 return files.path;

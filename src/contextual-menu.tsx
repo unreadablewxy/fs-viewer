@@ -21,7 +21,7 @@ function renderItem({
 
 export const Item = React.memo(renderItem);
 
-export function Divider() {
+export function Divider(): JSX.Element {
     return <li className="divider" />;
 }
 

@@ -10,7 +10,7 @@ interface Props {
     onClick: React.MouseEventHandler<HTMLButtonElement>;
 }
 
-export function ScopeToggle({active, onClick}: Props) {
+export function ScopeToggle({active, onClick}: Props): JSX.Element {
     let tooltip: string;
     let icon: string;
 
