@@ -25,8 +25,8 @@ jobs:
       env:
         cache-name: cache-node-modules
       with:
-        path: %userprofile%\\.npm
-        key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**\\package-lock.json') }}
+        path: '%userprofile%\.npm'
+        key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**\package-lock.json') }}
         restore-keys: |
           ${{ runner.os }}-build-${{ env.cache-name }}-
           ${{ runner.os }}-build-
