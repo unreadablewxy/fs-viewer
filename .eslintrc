@@ -1,0 +1,19 @@
+{
+    "root": true,
+    "parser": "@typescript-eslint/parser",
+    "plugins": [
+        "@typescript-eslint"
+    ],
+    "extends": [
+        "eslint:recommended",
+        "plugin:@typescript-eslint/eslint-recommended",
+        "plugin:@typescript-eslint/recommended"
+    ],
+    "rules": {
+        // dumb rule for people with uncontrolled ADHD or too lazy to read
+        "no-fallthrough": "off",
+
+        // dumb rule for gullible idiots that trusts implicit conversions
+        "@typescript-eslint/no-inferrable-types": "off"
+    }
+}

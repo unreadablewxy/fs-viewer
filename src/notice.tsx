@@ -16,7 +16,7 @@ interface Props {
 }
 
 function renderNotice({children, title, icon, level}: Props) {
-    let subClassName = (level && Level[level] || "").toLowerCase();
+    const subClassName = (level && Level[level] || "").toLowerCase();
     return <div className={`notice ${subClassName}`}>
         <h1>
             {icon && <Icon path={icon} />}

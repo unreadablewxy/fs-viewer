@@ -1,29 +1,43 @@
+import {openDirectoryPrompt, openFilePrompt} from "./dialog";
 import {
     findUntaggedFiles,
     openDirectory,
+    openTagsNamespace,
+    joinPath,
     loadTagsIndex,
     loadFileTagIDs,
+    reduceTextFile,
+    saveTagsIndex,
     saveFileTagIDs,
     saveTagNamespace,
     deleteTag,
     clearTagIndex,
-    addTagToFiles,
-    removeTagFromFiles,
 } from "./files";
 import {setMaximized, minimize, closeWindow} from "./window";
-import {loadPreferences, savePreferences} from "./preferences";
+import {
+    loadPreferences,
+    savePreferences,
+    getExtensionRoot,
+    getExtensions,
+} from "./preferences";
+import {createConnection as createIPCConnection} from "./ipc";
 
 const api = Object.freeze({
+    openDirectoryPrompt,
+    openFilePrompt,
+
     findUntaggedFiles,
     openDirectory,
+    openTagsNamespace,
+    joinPath,
     loadTagsIndex,
     loadFileTagIDs,
+    reduceTextFile,
+    saveTagsIndex,
     saveFileTagIDs,
     saveTagNamespace,
     deleteTag,
     clearTagIndex,
-    addTagToFiles,
-    removeTagFromFiles,
 
     setMaximized,
     minimize,
@@ -31,15 +45,18 @@ const api = Object.freeze({
 
     loadPreferences,
     savePreferences,
+    getExtensionRoot,
+    getExtensions,
+
+    createIPCConnection,
 });
 
 declare global {
     type API = typeof api;
+
+    interface Window {
+        api?: API;
+    }
 }
 
-Object.defineProperty(window, "api", {
-    value: api,
-    configurable: false,
-    writable: false,
-    enumerable: true,
-});
+window.api = api;

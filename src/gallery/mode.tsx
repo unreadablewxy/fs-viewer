@@ -1,24 +1,25 @@
 import "./gallery.sass";
 import * as React from "react";
 
+import {BrowsingService} from "../browsing";
 import {ScrollPane} from "../scroll-pane";
 
+import {Path} from "./constants";
 import {Thumbnail} from "./thumbnail";
 
-interface Props {
-    files: FilesView;
-    onPickFile: (index: number) => void;
-
-    selected: Set<number> | null;
-    onSelectChanged: (index: number, end: number, clear: boolean) => void;
-
-    initialFocus: number;
+interface PreferenceMappedProps {
     columns: number;
     overscan: number;
 
     thumbnailPath?: string;
-    thumbnailScaling: ThumbnailSizing;
+    thumbnailSizing: ThumbnailSizing;
     thumbnailResolution?: ThumbnailResolution;
+}
+
+interface Props extends PreferenceMappedProps {
+    browsing: BrowsingService;
+
+    onNavigate: (id: string) => void;
 }
 
 interface State {
@@ -64,8 +65,8 @@ export class Gallery extends React.PureComponent<Props, State> {
     private observer?: IntersectionObserver;
     private styles?: HTMLStyleElement;
 
-    constructor(props: Props, context: any) {
-        super(props, context);
+    constructor(props: Props) {
+        super(props);
 
         this.viewport = React.createRef();
         this.unrenderedTop = React.createRef();
@@ -77,8 +78,8 @@ export class Gallery extends React.PureComponent<Props, State> {
         // Since there's no way to know the size of the viewport at this point,
         // We ask first render to draw exactly 1 row so there's something to
         // scroll to after the component mounts
-        const {initialFocus, columns} = this.props;
-        const firstVisible = columns * Math.trunc(initialFocus / columns);
+        const {browsing, columns} = this.props;
+        const firstVisible = columns * Math.trunc((browsing.focusedFile || 0) / columns);
         this.state = {
             firstVisible,
             lastVisible: firstVisible + columns,
@@ -87,6 +88,9 @@ export class Gallery extends React.PureComponent<Props, State> {
 
         this.handleIntersection = this.handleIntersection.bind(this);
         this.handleClickThumbnail = this.handleClickThumbnail.bind(this);
+
+        this.props.browsing.on("fileschange", this.onFilesChanged.bind(this));
+        this.props.browsing.on("selectchange", this.onselectChanged.bind(this));
     }
 
     private clearCatchupTimer(): void {
@@ -107,10 +111,7 @@ export class Gallery extends React.PureComponent<Props, State> {
         }
     }
 
-    private handleIntersection(
-        entries: IntersectionObserverEntry[],
-        observer: IntersectionObserver): void
-    {
+    private handleIntersection(entries: IntersectionObserverEntry[]): void {
         const unrenderedTop = this.unrenderedTop.current;
         const unrenderedBottom = this.unrenderedBottom.current;
         const overscanTop = this.overscanTop.current;
@@ -192,7 +193,7 @@ export class Gallery extends React.PureComponent<Props, State> {
         document.head.appendChild(this.styles);
         this.updateStyles();
 
-        let options: IntersectionObserverInit = {
+        const options: IntersectionObserverInit = {
             root: this.viewport.current,
             rootMargin: '0px',
             threshold: 0
@@ -200,7 +201,7 @@ export class Gallery extends React.PureComponent<Props, State> {
 
         // At this point, we're still drawing one row, so the scroll should
         // center our initial visible entry
-        let thumbnails = this.thumbnailContainer.current as HTMLUListElement;
+        const thumbnails = this.thumbnailContainer.current as HTMLUListElement;
         thumbnails.scrollIntoView({block: "center"});
 
         // Upon creation, the observer should fire off an event that will
@@ -225,18 +226,12 @@ export class Gallery extends React.PureComponent<Props, State> {
     }
 
     componentDidUpdate(prev: Props): void {
-        const {columns, files, selected} = this.props;
+        const {columns} = this.props;
 
         if (prev.columns !== columns) {
             this.updateStyles();
             this.beginAnimation();
         }
-
-        if (prev.files !== files)
-            this.onCatchup();
-
-        if (prev.selected && !selected && this.state.selectAnchor !== null)
-            this.setState({selectAnchor: null});
     }
 
     private beginAnimation(): void {
@@ -251,15 +246,13 @@ export class Gallery extends React.PureComponent<Props, State> {
         }, 210);
     }
 
-    render() {
+    render(): React.ReactNode {
         const {
-            files,
             columns,
             overscan,
-            selected,
             thumbnailPath,
             thumbnailResolution,
-            thumbnailScaling,
+            thumbnailSizing,
         } = this.props;
 
         const {firstVisible, lastVisible} = this.state;
@@ -269,6 +262,7 @@ export class Gallery extends React.PureComponent<Props, State> {
         let lastDrawn: number;
         let objectsCount: number;
 
+        const {files, selected} = this.props.browsing;
         if (files) {
             const overscanCols = overscan * columns;
 
@@ -299,7 +293,7 @@ export class Gallery extends React.PureComponent<Props, State> {
             height: `calc((${rowHeightExpression})*${Math.ceil((objectsCount - lastDrawn) / columns)})`,
         };
 
-        return <section className={`gallery scale-${thumbnailScaling}`}>
+        return <section className={`gallery scale-${thumbnailSizing}`}>
             <ScrollPane contentRef={this.viewport}>
                 <div className="unrendered top"
                     ref={this.unrenderedTop}
@@ -337,6 +331,8 @@ export class Gallery extends React.PureComponent<Props, State> {
     ): void {
         if (ctrlKey || shiftKey) {
             this.setState(state => {
+                const {browsing} = this.props;
+
                 // Range selection takes precedence
                 if (shiftKey) {
                     let start: number;
@@ -354,16 +350,54 @@ export class Gallery extends React.PureComponent<Props, State> {
                         start = end = index;
                     }
 
-                    this.props.onSelectChanged(start, end + 1, altKey);
+                    if (altKey)
+                        browsing.removeSelection(start, end + 1);
+                    else
+                        browsing.addSelection(start, end + 1);
+
                     return {selectAnchor: altKey ? null : index};
                 }
 
-                const targetSelected = this.props.selected?.has(index) || false;
-                this.props.onSelectChanged(index, index + 1, targetSelected);
+                if (browsing.selected?.has(index))
+                    browsing.addSelection(index, index + 1);
+                else
+                    browsing.removeSelection(index, index + 1);
+
                 return {selectAnchor: index};
             });
         } else {
-            this.props.onPickFile(index);
+            this.props.browsing.setFocus(index);
+            this.props.onNavigate("/stage");
         }
     }
+
+    private onFilesChanged(): void {
+        this.forceUpdate(() => this.onCatchup());
+    }
+
+    private onselectChanged(): void {
+        if (this.state.selectAnchor === null)
+            this.forceUpdate();
+        else
+            this.setState({selectAnchor: null});
+    }
 }
+
+export const Definition = {
+    id: "gallery",
+    path: Path,
+    services: ["browsing", "tagging"],
+    component: Gallery,
+    selectPreferences: ({
+        columns,
+        thumbnailPath,
+        thumbnailSizing,
+        thumbnailResolution,
+    }: Preferences): PreferenceMappedProps => ({
+        overscan: 2,
+        columns,
+        thumbnailPath,
+        thumbnailSizing,
+        thumbnailResolution,
+    }),
+};

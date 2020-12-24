@@ -1,0 +1,30 @@
+@import '../global.sass'
+
+nav .menu
+    > li 
+        padding-top: $space-default
+
+        > :first-child
+            flex-grow: 1
+
+    .group
+        display: flex
+        flex-direction: row-reverse
+
+        button
+            height: $space-text-box-height
+            width: $nav-button-size
+
+        > *:first-child
+            flex-grow: 1
+            flex-shrink: 1
+
+        > *:not(:first-child)
+            display: inline-block
+            border-right: 1px solid $color-panel-opaque
+
+    svg
+        @include svg-icon($nav-icon-size)
+
+    .notice
+        margin: $space-default

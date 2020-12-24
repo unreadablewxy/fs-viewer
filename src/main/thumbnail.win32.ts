@@ -1,4 +1,4 @@
-import {protocol, Request} from "electron";
+import {protocol, ProtocolRequest} from "electron";
 import {getImageForPath, flags} from "shell-image-win";
 
 type ResponseCallback = (response: Buffer | number) => void;
@@ -8,7 +8,7 @@ const resolutionMapping: {[k in ThumbnailResolution]: number} = {
     "high": 400,
 };
 
-function handleThumbnailRequest(request: Request, complete: ResponseCallback): void {
+function handleThumbnailRequest(request: ProtocolRequest, complete: ResponseCallback): void {
     if (!request.url || request.url.length < 10) {
         complete(400);
         return;
@@ -33,6 +33,7 @@ function handleThumbnailRequest(request: Request, complete: ResponseCallback): v
     }).then(complete, () => complete(500));
 }
 
-export function registerThumbnailProtocol(): void {
+export function registerThumbnailProtocol(): Promise<void> {
     protocol.registerBufferProtocol("thumb", handleThumbnailRequest as any);
+    return Promise.resolve();
 }

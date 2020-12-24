@@ -30,8 +30,8 @@ const noKeyDown = {
 type KeyStateNames = "shiftDown" | "controlDown" | "altDown";
 
 export class InputComponent extends React.PureComponent<InternalProps, State> {
-    constructor(props: InternalProps, context: any) {
-        super(props, context);
+    constructor(props: InternalProps) {
+        super(props);
 
         this.state = {};
 
@@ -41,7 +41,7 @@ export class InputComponent extends React.PureComponent<InternalProps, State> {
         this.handleKeyUp = this.handleKeyUp.bind(this);
     }
 
-    render() {
+    render(): React.ReactNode {
         const {disabled, forwardedRef, value} = this.props;
 
         return <label>
@@ -64,7 +64,7 @@ export class InputComponent extends React.PureComponent<InternalProps, State> {
         this.props.onModeChange(!!this.state.controlDown);
     }
 
-    handleBlur(ev: React.FocusEvent): void {
+    handleBlur(): void {
         const {altDown, controlDown, shiftDown} = this.state;
         if (altDown || controlDown || shiftDown)
             this.setState(noKeyDown, () => this.dispatchModeChange());
@@ -78,10 +78,11 @@ export class InputComponent extends React.PureComponent<InternalProps, State> {
         switch (ev.key) {
         case "Alt":
         case "Control":
-        case "Shift":
+        case "Shift": {
             const stateKey = `${ev.key.toLowerCase()}Down` as KeyStateNames;
             this.setState({[stateKey]: true}, () => this.dispatchModeChange());
             break;
+        }
 
         case "Enter":
             this.props.onSubmit(!!this.state.shiftDown);
@@ -105,10 +106,11 @@ export class InputComponent extends React.PureComponent<InternalProps, State> {
         switch (ev.key) {
         case "Alt":
         case "Control":
-        case "Shift":
+        case "Shift": {
             const stateKey = `${ev.key.toLowerCase()}Down` as KeyStateNames;
             this.setState({[stateKey]: false}, () => this.dispatchModeChange());
             break;
+            }
         }
     }
 }

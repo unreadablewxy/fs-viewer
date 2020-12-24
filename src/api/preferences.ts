@@ -1,9 +1,10 @@
 import {remote} from "electron";
-import {existsSync, readFile, mkdir, writeFile} from "fs";
-import {join as joinPath} from "path";
+import {existsSync, readdir, readFile, mkdir, writeFile} from "fs";
+import {join as joinPath, sep as pathSeparator} from "path";
 import {promisify} from "util";
 
 const mkdirAsync = promisify(mkdir);
+const readdirAsync = promisify(readdir);
 const readFileAsync = promisify(readFile);
 const writeFileAsync = promisify(writeFile);
 
@@ -13,6 +14,7 @@ const defaultPreferences: Preferences = {
     thumbnail: "system",
     thumbnailSizing: "cover",
     preload: 1,
+    extensions: [],
 };
 
 export const rcFileName = ".viewerrc";
@@ -60,4 +62,18 @@ const configLoadTask = loadPreferenceFile(configFilePath)
 
 export async function loadPreferences(): Promise<Preferences> {
     return configLoadTask;
+}
+
+export function getExtensionRoot(): string {
+    return joinPath(remote.app.getPath("home"), ".fs-viewer-extensions") + pathSeparator;
+}
+
+export async function getExtensions(): Promise<string[]> {
+    const paths = await readdirAsync(getExtensionRoot(), {withFileTypes: true});
+    const result = new Array<string>();
+    for (let n = 0; n < paths.length; ++n)
+        if (paths[n].isDirectory())
+            result.push(paths[n].name);
+
+    return result;
 }
