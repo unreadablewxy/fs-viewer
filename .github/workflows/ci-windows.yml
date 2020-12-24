@@ -25,7 +25,7 @@ jobs:
       env:
         cache-name: cache-node-modules
       with:
-        path: "%userprofile%\.npm"
+        path: %userprofile%\\.npm
         key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**\\package-lock.json') }}
         restore-keys: |
           ${{ runner.os }}-build-${{ env.cache-name }}-
@@ -40,6 +40,6 @@ jobs:
       with:
         node-version: ${{ matrix.node-version }}
 
-    - run: npm ci
+    - run: npm install
 
     - run: npm run build
