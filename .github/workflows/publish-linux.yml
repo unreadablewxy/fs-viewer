@@ -36,7 +36,7 @@ jobs:
       uses: actions/upload-artifact@v2.2.1
       with:
         name: asar
-        path: dist/win32-unpacked/resources/app.asar
+        path: dist/linux-unpacked/resources/app.asar
     - name: Upload attribution files
       uses: actions/upload-artifact@v2.2.1
       with:
