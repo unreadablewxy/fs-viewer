@@ -2,6 +2,7 @@ import type {
     Extension as BaseExtension,
     ComponentDefinition as BaseComponentDefinition,
 } from "inconel";
+import type {match} from "react-router";
 
 import type {Service as DialogService} from "./dialog";
 import type {Service as IPCService} from "./ipc";
@@ -77,12 +78,14 @@ export type MenuDefinition<ServiceNames extends string, PreferenceMappedProps> =
     & ComponentDefinition<ServiceNames, PreferenceMappedProps, MenuSpecificProps>
 ;
 
-export interface ModeSpecificDefs {
+export interface ModeSpecificDefs<Props> {
     readonly path: string;
+
+    readonly selectRouteParams?: (location: Location, match: match) => Props;
 }
 
-export type ModeDefinition<ServiceNames extends string, PreferenceMappedProps> = ModeSpecificDefs
-    & ComponentDefinition<ServiceNames, PreferenceMappedProps, {}>
+export type ModeDefinition<ServiceNames extends string, PreferenceMappedProps, UrlMappedProps> = ModeSpecificDefs<UrlMappedProps>
+    & ComponentDefinition<ServiceNames, PreferenceMappedProps, UrlMappedProps>
 ;
 
 export interface ExtraSpecificDefs {
@@ -105,7 +108,7 @@ export interface Extension extends BaseExtension {
     /**
      * Modes to be added
      */
-    readonly modes?: ReadonlyArray<ModeDefinition<string, any>>;
+    readonly modes?: ReadonlyArray<ModeDefinition<string, any, any>>;
 
     /**
      * Extra components to add to particular modes

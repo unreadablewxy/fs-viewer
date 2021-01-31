@@ -2,10 +2,12 @@ type Operation<T> = () => T | PromiseLike<T>;
 
 export class Debounce<T> {
     private pending: Promise<T> | null;
+    private readonly duration: number;
 
-    constructor(private readonly op: Operation<T>) {
+    constructor(private readonly op: Operation<T>, duration?: number) {
         this.pending = null;
         this.createTask = this.createTask.bind(this);
+        this.duration = duration || 0;
     }
 
     public schedule(): Promise<T> {
@@ -28,6 +30,6 @@ export class Debounce<T> {
             } finally {
                 this.pending = null;
             }
-        }, 0);
+        }, this.duration);
     }
 }

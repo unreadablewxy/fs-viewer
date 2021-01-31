@@ -12,14 +12,17 @@ interface Props {
 }
 
 interface State {
-    maximized?: boolean;
+    maximized: boolean;
 }
 
 export class SystemButtons extends React.PureComponent<Props, State> {
     constructor(props: Props) {
         super(props);
 
-        this.state = {};
+        this.state = {
+            maximized: props.api.getMaximzed(),
+        };
+
         this.handleToggleMaximized = this.handleToggleMaximized.bind(this);
     }
 

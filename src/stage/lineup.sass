@@ -1,0 +1,41 @@
+@import "../global.sass"
+
+.stage .lineup
+    padding-top: $space-narrow
+    position: relative
+    width: 100%
+    height: 10vh
+    overflow: hidden
+
+    ul
+        display: block
+        position: absolute
+        left: 50%
+        transform: translate(-50%)
+        height: 100%
+
+        list-style: none
+        padding: 0
+        margin: 0
+
+        white-space: nowrap
+        text-align: center
+
+        > li
+            width: 9vw
+
+        > li:not(:last-child)
+            margin-right: $space-narrow
+
+    .thumbnail
+        width: 10vh
+        height: 100%
+
+        &.anchor
+            outline: 4px solid #FFF
+
+            &::after
+                display: none
+
+        > div
+            display: none

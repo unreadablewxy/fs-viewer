@@ -1,5 +1,8 @@
-import {app, BrowserWindow} from "electron";
+import {app, BrowserWindow, BrowserWindowConstructorOptions} from "electron";
+import {writeFileSync, readFile} from "fs";
 import path from "path";
+
+import {Debounce} from "../debounce";
 
 import {registerThumbnailProtocol} from "./thumbnail";
 
@@ -14,15 +17,58 @@ function handleMainWindowClosed(): void {
     mainWindow = null;
 }
 
+interface WindowState extends Pick<BrowserWindowConstructorOptions, "x"|"y"|"width"|"height"> {
+    maximized?: boolean;
+}
+
+let windowState: WindowState = {
+    width: 800,
+    height: 600,
+};
+
+const windowStateFilePath = path.join(
+    app.getPath("appData"), "fs-viewer", "window-state.json");
+
+const saveWindowState = new Debounce(function saveWindowState() {
+    writeFileSync(windowStateFilePath, JSON.stringify(windowState));
+    console.log("Saving window state");
+}, 2000);
+
+const loadStateTask = new Promise<void>((resolve) => {
+    readFile(windowStateFilePath, { encoding:"utf-8" }, (err, data) => {
+        if (!err) {
+            try {
+                windowState = Object.assign(windowState, JSON.parse(data));
+            } catch (e) {
+                // Ignore failures
+            }
+        }
+
+        resolve();
+    });
+});
+
+interface WindowEvent {
+    sender: BrowserWindow
+}
+
+function handleWindowMove({sender}: WindowEvent) {
+    windowState = sender.getBounds();
+    windowState.maximized = sender.isMaximized();
+    saveWindowState.schedule();
+}
+
 function createWindow(): void {
-    // Create the browser window.
+    const {maximized, ...optionsPatch} = windowState;
+
     mainWindow = new BrowserWindow({
+        ...optionsPatch,
         frame: false,
-        width: 800,
-        height: 600,
         minWidth: 600,
         minHeight: 400,
-        backgroundColor: "#000000",
+        backgroundColor: "#000",
+        show: false,
+        paintWhenInitiallyHidden: true,
         webPreferences: {
             preload: path.join(app.getAppPath(), "build/api.js"),
             enableRemoteModule: true,
@@ -30,18 +76,26 @@ function createWindow(): void {
     });
 
     mainWindow.setMenu(null);
-
-    // and load the index.html of the app.
     mainWindow.loadFile("build/index.html");
+
+    if (maximized)
+        mainWindow.maximize();
 
     // Open the DevTools.
     // mainWindow.webContents.openDevTools()
 
-    mainWindow.on("closed", handleMainWindowClosed);
+    mainWindow.once("closed", handleMainWindowClosed);
+    mainWindow.once("ready-to-show", () => {
+        if (mainWindow) {
+            mainWindow.on("move", handleWindowMove);
+            mainWindow.on("resize", handleWindowMove);
+            mainWindow.show();
+        }
+    });
 }
 
 function onReady(): void {
-    registerThumbnailProtocol().then(() => {
+    Promise.all([loadStateTask, registerThumbnailProtocol()]).then(() => {
         createWindow();
     });
 }

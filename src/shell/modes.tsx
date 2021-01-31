@@ -22,12 +22,14 @@ interface State {
 export class Modes extends React.PureComponent<Props, State> {
     render(): React.ReactNode {
         const routes = this.props.modes.map(({id, path, component: Component}) => (
-            <Route key={id} exact path={path}>
-                <Component
+            <Route key={id} path={path}>
+                {({match, location}) => <Component
                     onNavigate={this.props.onNavigate}
                     services={this.props.services}
                     preferences={this.props.preferences}
-                />
+                    match={match}
+                    location={location}
+                />}
             </Route>
         ));
 

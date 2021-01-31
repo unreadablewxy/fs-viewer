@@ -1,52 +1,62 @@
-import {createConnection as createNetConnection} from "net";
+import {execFile, ChildProcess} from "child_process";
+import {existsSync} from "fs";
+import {Socket, createConnection as createNetConnection} from "net";
 import {normalize, isAbsolute} from "path";
+import type {Writable} from "stream";
 
-import type {Connection, Request as RequestShape} from "../ipc";
+import type {Request as RequestShape} from "../ipc";
 
 const textEncoding = "utf-8";
 
-class Request implements RequestShape {
+export class Request implements RequestShape {
     private readonly buffer: Buffer;
     private offset: number = 0;
 
-    constructor(
-        private readonly dispatch: (buffer: Buffer) => void,
-        size?: number,
-    ) {
+    constructor(size?: number) {
         this.buffer = Buffer.alloc(size || 1024);
     }
 
-    public fill(): number {
+    public get fill(): number {
         return this.offset;
     }
 
-    public addString(value: string): RequestShape {
+    public addString(value: string): this {
         this.offset += this.buffer.write(value, this.offset, textEncoding);
         return this;
     }
 
-    public addUInt32(...values: number[]): RequestShape {
+    public addUInt32(...values: number[]): this {
         this.offset = this.addNumbers(this.offset, values, Buffer.prototype.writeUInt32LE);
         return this;
     }
 
-    public addUInt16(...values: number[]): RequestShape {
-        this.offset = this.addNumbers(this.offset, values, Buffer.prototype.writeUInt16LE);
-        return this;
-    }
-
-    public setUInt32(offset: number, value: number): RequestShape {
+    public setUInt32(offset: number, value: number): this {
         this.buffer.writeUInt32LE(value, offset);
         return this;
     }
 
-    public setUInt16(offset: number, value: number): RequestShape {
+    public addUInt16(...values: number[]): this {
+        this.offset = this.addNumbers(this.offset, values, Buffer.prototype.writeUInt16LE);
+        return this;
+    }
+
+    public setUInt16(offset: number, value: number): this {
         this.buffer.writeUInt16LE(value, offset);
         return this;
     }
 
-    public send(): void {
-        this.dispatch(this.buffer.slice(0, this.offset));
+    public addUInt8(...values: number[]): this {
+        this.offset = this.addNumbers(this.offset, values, Buffer.prototype.writeUInt8);
+        return this;
+    }
+
+    public setUInt8(offset: number, value: number): this {
+        this.buffer.writeUInt8(value, offset);
+        return this;
+    }
+
+    public send(stream: Writable): void {
+        stream.write(this.buffer.slice(0, this.offset));
     }
 
     private addNumbers(
@@ -61,24 +71,30 @@ class Request implements RequestShape {
     }
 }
 
-export function createConnection(address: string): Promise<Connection> {
-    address = normalize(address);
-    if (!isAbsolute)
-        throw new Error("Invalid path to IPC socket");
+function assertPath(maybePath: string): string {
+    maybePath = normalize(maybePath);
+    if (!isAbsolute(maybePath) || !existsSync(maybePath))
+        throw new Error("A file system path is required");
 
-    return new Promise<Connection>((resolve, reject) => {
-        const socket = createNetConnection(address)
-            .once("error", reject);
+    return maybePath;
+}
 
-        const dispatch = socket.write.bind(socket);
-        const result: Connection = {
-            on: socket.on.bind(socket),
-            request: (size?: number) => new Request(dispatch, size),
-            close: () => socket.destroy(),
-        };
+export function createIPCConnection(path: string): Promise<Socket> {
+    path = assertPath(path);
+
+    return new Promise<Socket>((resolve, reject) => {
+        const socket = createNetConnection(path);
+
+        socket.once("error", reject);
+
         socket.once("connect", () => {
             socket.removeListener("error", reject);
-            resolve(result);
+            resolve(socket);
         });
     });
+}
+
+export function spawnChildProcess(executable: string, ...args: string[]): ChildProcess {
+    executable = assertPath(executable);
+    return execFile(executable, args);
 }

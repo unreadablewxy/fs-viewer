@@ -13,14 +13,18 @@ import {
     deleteTag,
     clearTagIndex,
 } from "./files";
-import {setMaximized, minimize, closeWindow} from "./window";
+import {getMaximzed, setMaximized, minimize, closeWindow} from "./window";
 import {
     loadPreferences,
     savePreferences,
     getExtensionRoot,
     getExtensions,
 } from "./preferences";
-import {createConnection as createIPCConnection} from "./ipc";
+import {
+    createIPCConnection,
+    spawnChildProcess,
+    Request,
+} from "./ipc";
 
 const api = Object.freeze({
     openDirectoryPrompt,
@@ -39,6 +43,7 @@ const api = Object.freeze({
     deleteTag,
     clearTagIndex,
 
+    getMaximzed,
     setMaximized,
     minimize,
     closeWindow,
@@ -49,6 +54,8 @@ const api = Object.freeze({
     getExtensions,
 
     createIPCConnection,
+    spawnChildProcess,
+    Request,
 });
 
 declare global {

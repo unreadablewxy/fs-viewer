@@ -25,11 +25,9 @@ var main = from("./src/main/index.ts")
     .withNativeModules();
 
 if (platform === "linux") {
-    main = main.withFiles({
-        patterns: [
-            { from: "node_modules/abstract-socket/build/Release/bindings.node" },
-        ],
-    });
+    main = main.withFiles([
+        { from: "node_modules/abstract-socket/build/Release/bindings.node" },
+    ]);
 }
 
 module.exports = [

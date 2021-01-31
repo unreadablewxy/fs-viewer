@@ -13,7 +13,7 @@ window.React = React;
 
 import {createBrowserHistory} from "history";
 const history = createBrowserHistory();
-history.replace("/");
+history.replace("/gallery");
 
 import {render} from "react-dom";
 import {Router} from "react-router";

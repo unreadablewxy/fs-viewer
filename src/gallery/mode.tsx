@@ -3,9 +3,9 @@ import * as React from "react";
 
 import {BrowsingService} from "../browsing";
 import {ScrollPane} from "../scroll-pane";
+import {Thumbnail} from "../thumbnail";
 
 import {Path} from "./constants";
-import {Thumbnail} from "./thumbnail";
 
 interface PreferenceMappedProps {
     columns: number;
@@ -88,9 +88,6 @@ export class Gallery extends React.PureComponent<Props, State> {
 
         this.handleIntersection = this.handleIntersection.bind(this);
         this.handleClickThumbnail = this.handleClickThumbnail.bind(this);
-
-        this.props.browsing.on("fileschange", this.onFilesChanged.bind(this));
-        this.props.browsing.on("selectchange", this.onselectChanged.bind(this));
     }
 
     private clearCatchupTimer(): void {
@@ -212,9 +209,15 @@ export class Gallery extends React.PureComponent<Props, State> {
         this.observer.observe(this.unrenderedBottom.current as Element);
         this.observer.observe(this.overscanTop.current as Element);
         this.observer.observe(this.overscanBottom.current as Element);
+        
+        this.props.browsing.on("fileschange", this.onFilesChanged);
+        this.props.browsing.on("selectchange", this.onselectChanged);
     }
 
     componentWillUnmount(): void {
+        this.props.browsing.off("fileschange", this.onFilesChanged);
+        this.props.browsing.off("selectchange", this.onselectChanged);
+
         this.observer?.disconnect();
         document.head.removeChild(this.styles as HTMLStyleElement);
 
@@ -371,11 +374,11 @@ export class Gallery extends React.PureComponent<Props, State> {
         }
     }
 
-    private onFilesChanged(): void {
+    onFilesChanged = (): void => {
         this.forceUpdate(() => this.onCatchup());
     }
 
-    private onselectChanged(): void {
+    onselectChanged = (): void => {
         if (this.state.selectAnchor === null)
             this.forceUpdate();
         else

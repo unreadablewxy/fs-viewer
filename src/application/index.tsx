@@ -1,18 +1,11 @@
 import "../elements.sass"
 
 import * as React from "react";
+import type {match} from "react-router-dom";
 import {createSelector} from "reselect";
 import {ComponentDefinition as BaseComponentDefinition, ServiceLookup, HostBuilder} from "inconel";
 
-import {Shell} from "../shell";
 import {create as createBrowsingService} from "../browsing";
-import {createTaggingService} from "../tag";
-import {createTransitionService} from "../stage";
-import {ProgressService} from "../progress";
-
-import {builtinMenus, builtinModes} from "./builtin";
-import {create as createPreferenceService} from "./preference-service";
-
 import {
     BuiltinServices,
     CommonComponentProps,
@@ -31,6 +24,13 @@ import {
     ComponentDefinition,
 } from "../extension";
 import {initialize as initializeOrdering} from "../ordering";
+import {ProgressService} from "../progress";
+import {Shell} from "../shell";
+import {createTransitionService} from "../stage";
+import {createTaggingService} from "../tag";
+
+import {builtinMenus, builtinModes} from "./builtin";
+import {create as createPreferenceService} from "./preference-service";
 import {WebExtensionLoader} from "./react-loader";
 
 const parentPreference: {[name in PreferenceName]?: PreferenceName} = {
@@ -90,6 +90,11 @@ interface GenericProps extends CommonComponentProps {
     preferences: Preferences;
 }
 
+interface GenericModeProps extends GenericProps {
+    location: Location;
+    match: match;
+}
+
 export type GenericExtraDef =
     BaseComponentDefinition<string, GenericProps> & ExtraSpecificDefs;
 
@@ -97,7 +102,7 @@ export type GenericMenuDef =
     BaseComponentDefinition<string, MenuSpecificProps & GenericProps> & MenuSpecificDefs;
 
 export type GenericModeDef =
-    BaseComponentDefinition<string, GenericProps> & ModeSpecificDefs;
+    BaseComponentDefinition<string, GenericProps> & ModeSpecificDefs<unknown>;
 
 interface State {
     workingPath: string | null;
@@ -131,10 +136,6 @@ function mapProps(
     props: GenericProps & MenuSpecificProps,
 ): CommonComponentProps & MenuSpecificProps;
 function mapProps(
-    def: ModeDefinition<string, unknown>,
-    props: GenericProps,
-): CommonComponentProps
-function mapProps(
     def: ExtraDefinition<string, unknown>,
     props: GenericProps,
 ): CommonComponentProps;
@@ -145,6 +146,16 @@ function mapProps(
     return def.selectPreferences
         ? Object.assign(props, def.selectPreferences(props.preferences))
         : props;
+}
+
+function mapModeProps(
+    def: ModeDefinition<string, unknown, unknown>,
+    props: GenericModeProps,
+): CommonComponentProps {
+    const result = mapProps(def, props);
+    return def.selectRouteParams
+        ? Object.assign(result, def.selectRouteParams(props.location, props.match))
+        : result;
 }
 
 const excludedErrorProperties: {[k in string]: 1} = {
@@ -192,7 +203,9 @@ export class Application extends React.Component<Props, State> {
 
         this.builtinServices = {
             ipc: {
+                createRequest: (size) => new props.api.Request(size),
                 connect: props.api.createIPCConnection,
+                spawn: props.api.spawnChildProcess,
             },
             dialog: {
                 openDirectoryPrompt: props.api.openDirectoryPrompt,
@@ -223,7 +236,7 @@ export class Application extends React.Component<Props, State> {
         const extensionHost = new HostBuilder<Extension>(loader, document)
             .withBuiltinServices(this.builtinServices as unknown as ServiceLookup)
             .withReactComponents<GenericProps & MenuSpecificProps, "menus">("menus", mapProps, builtinMenus)
-            .withReactComponents<GenericProps, "modes">("modes", mapProps, builtinModes)
+            .withReactComponents<GenericModeProps, "modes">("modes", mapModeProps, builtinModes)
             .withReactComponents<GenericProps, "extras">("extras", mapProps)
             .build();
 

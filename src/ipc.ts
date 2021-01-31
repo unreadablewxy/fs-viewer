@@ -1,34 +1,26 @@
-type DataHandler = (data: ArrayBuffer) => void;
-
-type CloseHandler = (error: boolean) => void;
-
-type ErrorHandler = (error: Error) => void;
+import type {ChildProcess} from "child_process";
+import type {Socket} from "net";
+import type {Writable} from "stream";
 
 export interface Request {
-    fill(): number;
+    fill: number;
 
-    addString(value: string): Request;
+    addString(value: string): this;
 
-    addUInt32(...values: number[]): Request;
-    setUInt32(offset: number, value: number): Request;
+    addUInt32(...values: number[]): this;
+    setUInt32(offset: number, value: number): this;
 
-    addUInt16(...values: number[]): Request;
-    setUInt16(offset: number, value: number): Request;
+    addUInt16(...values: number[]): this;
+    setUInt16(offset: number, value: number): this;
 
-    send(): void;
+    addUInt8(...values: number[]): this;
+    setUInt8(offset: number, value: number): this;
+
+    send(destination: Writable): void;
 };
 
-interface Socket {
-    on(event: "data",  handler: DataHandler): Socket;
-    on(event: "close", handler: CloseHandler): Socket;
-    on(event: "error", handler: ErrorHandler): Socket;
-}
-
-export interface Connection extends Socket {
-    request(maxSize?: number): Request;
-    close(): void;
-}
-
 export interface Service {
-    connect(address: string): Promise<Connection>;
+    createRequest(maxSize?: number): Request;
+    connect(socketPath: string): Promise<Socket>;
+    spawn(executablePath: string, ...argv: string[]): ChildProcess;
 }

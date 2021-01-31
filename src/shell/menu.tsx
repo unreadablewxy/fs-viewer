@@ -4,6 +4,7 @@ import {mdiImageBroken, mdiFolderOpen, mdiArrowLeft, mdiSelection} from "@mdi/js
 import {Icon} from "@mdi/react";
 import {ServiceLookup} from "inconel";
 
+import {Path as GalleryPath} from "../gallery";
 import {GenericMenuDef} from "../application";
 import {BuiltinServices} from "../extension";
 
@@ -99,7 +100,7 @@ export class Menu extends React.PureComponent<Props, State> {
                 <MenuButton id=""
                     icon={mdiArrowLeft}
                     label="Go back"
-                    visible={this.props.locationPath !== "/"}
+                    visible={this.props.locationPath !== GalleryPath}
                     onClick={this.props.onBacktrack}
                 />
                 <li className={selectedFilesCount < 1 ? "variadic hidden" : "variadic"}

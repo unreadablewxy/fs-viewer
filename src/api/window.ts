@@ -14,6 +14,10 @@ window.addEventListener("keydown", ev => {
     });
 });
 
+export function getMaximzed(): boolean {
+    return remote.getCurrentWindow().isMaximized();
+}
+
 export function setMaximized(maxized: boolean): void {
     const window = remote.getCurrentWindow();
     if (maxized)

@@ -5,10 +5,14 @@ import {BrowsingService} from "../browsing";
 
 import {Path} from "./constants";
 import {Center} from "./center";
+import {Lineup} from "./lineup";
 import {TransitionService} from "./transition-service";
 
 interface PreferenceMappedProps {
     preload: number;
+    thumbnailPath?: string;
+    thumbnailSizing: ThumbnailSizing;
+    thumbnailResolution?: ThumbnailResolution;
 }
 
 interface Props extends PreferenceMappedProps {
@@ -16,7 +20,6 @@ interface Props extends PreferenceMappedProps {
     transition: TransitionService;
 
     showActualSize: boolean;
-    onSetFileIndex: (index: number) => void;
 }
 
 interface State {
@@ -96,6 +99,11 @@ export class Stage extends React.PureComponent<Props, State> {
                         alt={fileName}
                         onError={this.handleImageError} />}
             </Center>
+            <Lineup browsing={this.props.browsing}
+                thumbnailSizing={this.props.thumbnailSizing}
+                thumbnailResolution={this.props.thumbnailResolution}
+                thumbnailPath={this.props.thumbnailPath}
+            />
             <button disabled={dragging || fileIndex <= 0}
                 onClick={this.navigatePrev}
             />
@@ -202,5 +210,15 @@ export const Definition = {
     path: Path,
     services: ["browsing", "transition"],
     component: Stage,
-    selectPreferences: ({preload}: Preferences): PreferenceMappedProps => ({preload}),
+    selectPreferences: ({
+        preload,
+        thumbnailPath,
+        thumbnailSizing,
+        thumbnailResolution,
+    }: Preferences): PreferenceMappedProps => ({
+        preload,
+        thumbnailPath,
+        thumbnailSizing,
+        thumbnailResolution,
+    }),
 };
