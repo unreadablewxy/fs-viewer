@@ -45,7 +45,10 @@ interface Props extends ExternalProps, RouterProps {}
 
 interface State {
     // Time when focus was last lost
-    focusTime: number;
+    focusLossTime: number;
+
+    // Whether residual UI focus should be applied
+    focusAcquired: boolean;
 }
 
 export class ShellComponent extends React.PureComponent<Props, State> {
@@ -53,7 +56,8 @@ export class ShellComponent extends React.PureComponent<Props, State> {
         super(props);
 
         this.state = {
-            focusTime: 1, // Resting state should be unfocused, so timestamp it 1 ms after epoch (heh)
+            focusLossTime: 1, // Resting state should be unfocused, so timestamp it 1 ms after epoch (heh)
+            focusAcquired: false,
         };
 
         this.handleBacktrack = this.handleBacktrack.bind(this);
@@ -84,7 +88,7 @@ export class ShellComponent extends React.PureComponent<Props, State> {
                 extras={this.props.extras}
                 locationPath={this.props.locationPath}
             />
-            <nav className={this.state.focusTime > 0 ? "panel" : "panel focus"}
+            <nav className={this.state.focusAcquired ? "panel focus" : "panel"}
                 onMouseDown={sinkEvent}
             >
                 <SystemButtons api={api} />
@@ -100,7 +104,7 @@ export class ShellComponent extends React.PureComponent<Props, State> {
                     locationPath={this.props.locationPath}
                     onNavigate={this.handleNavigate}
                     menus={this.props.menus}
-                    focusTime={this.state.focusTime}
+                    focusLossTime={this.state.focusLossTime}
                     onFocusGained={this.handleMenuFocus}
                 />
             </nav>
@@ -113,19 +117,21 @@ export class ShellComponent extends React.PureComponent<Props, State> {
 
     handleKeyDown(ev: React.KeyboardEvent): void {
         if (ev.key === "Escape")
-            this.handleMaybeLostFocus()
+            this.handleMaybeLostFocus();
     }
 
     handleMaybeLostFocus(): void {
-        this.setState(({focusTime}) => focusTime
-            ? null
-            : { focusTime: new Date().getTime() }
-        );
+        this.setState(({focusAcquired}) => focusAcquired
+            ? {
+                focusAcquired: false,
+                focusLossTime: new Date().getTime(),
+            }
+            : null);
     }
 
     handleMenuFocus(): void {
         this.setState({
-            focusTime: 0,
+            focusAcquired: true,
         });
     }
 

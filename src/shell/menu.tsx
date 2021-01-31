@@ -1,6 +1,6 @@
 import "./menu.sass";
 import * as React from "react";
-import {mdiImageBroken, mdiFolderOpen, mdiArrowLeft, mdiSelection} from "@mdi/js";
+import {mdiImageBroken, mdiFolderOpen, mdiArrowLeft} from "@mdi/js";
 import {Icon} from "@mdi/react";
 import {ServiceLookup} from "inconel";
 
@@ -9,6 +9,7 @@ import {GenericMenuDef} from "../application";
 import {BuiltinServices} from "../extension";
 
 import {MenuButton} from "./menu-button";
+import {Selection} from "./selection";
 
 interface Props {
     services: ServiceLookup & BuiltinServices;
@@ -26,7 +27,7 @@ interface Props {
     onNavigate(path: string, state?: unknown): void;
 
     menus: ReadonlyArray<GenericMenuDef>;
-    focusTime: number;
+    focusLossTime: number;
     onFocusGained(): void;
 }
 
@@ -51,12 +52,10 @@ export class Menu extends React.PureComponent<Props, State> {
 
     componentDidMount(): void {
         this.props.services.progress.on("change", this.#forceUpdate);
-        this.props.services.browsing.on("selectchange", this.#forceUpdate);
     }
 
     componentWillUnmount(): void {
         this.props.services.progress.off("change", this.#forceUpdate);
-        this.props.services.browsing.off("selectchange", this.#forceUpdate);
     }
 
     render(): React.ReactNode {
@@ -82,11 +81,9 @@ export class Menu extends React.PureComponent<Props, State> {
                 onClick={this.handleToggleMenu}
             />
 
-            if (id === this.state.menu && this.state.openTime > this.props.focusTime)
+            if (id === this.state.menu && this.state.openTime > this.props.focusLossTime)
                 MenuComponent = component;
         }
-
-        const selectedFilesCount = browsing.selected.size;
 
         return <div className="background">
             <ul className="actions">
@@ -103,13 +100,7 @@ export class Menu extends React.PureComponent<Props, State> {
                     visible={this.props.locationPath !== GalleryPath}
                     onClick={this.props.onBacktrack}
                 />
-                <li className={selectedFilesCount < 1 ? "variadic hidden" : "variadic"}
-                    title={`${selectedFilesCount} files selected`}>
-                    <span>
-                        <Icon path={mdiSelection} />
-                        {selectedFilesCount > 0 && <span className="pill">{selectedFilesCount}</span>}
-                    </span>
-                </li>
+                <Selection browsing={browsing} />
             </ul>
 
             {MenuComponent && <MenuComponent
@@ -125,8 +116,8 @@ export class Menu extends React.PureComponent<Props, State> {
     }
 
     handleToggleMenu(newMenu: string): void {
-        this.setState(({menu, openTime}, {focusTime}) => {
-            if (openTime > focusTime && newMenu === menu)
+        this.setState(({menu, openTime}, {focusLossTime}) => {
+            if (openTime > focusLossTime && newMenu === menu)
                 return {menu: null, openTime: 0};
 
             this.props.onFocusGained();

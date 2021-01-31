@@ -43,6 +43,8 @@ function thumbnailCalcSize(columns: number, viewportWidth: number): number {
 }
 
 export class Gallery extends React.PureComponent<Props, State> {
+    private container: React.RefObject<HTMLElement>;
+
     // The scrolling container
     private readonly viewport: React.RefObject<HTMLElement>;
 
@@ -68,6 +70,7 @@ export class Gallery extends React.PureComponent<Props, State> {
     constructor(props: Props) {
         super(props);
 
+        this.container = React.createRef();
         this.viewport = React.createRef();
         this.unrenderedTop = React.createRef();
         this.unrenderedBottom = React.createRef();
@@ -212,6 +215,8 @@ export class Gallery extends React.PureComponent<Props, State> {
         
         this.props.browsing.on("fileschange", this.onFilesChanged);
         this.props.browsing.on("selectchange", this.onselectChanged);
+
+        (this.container.current as HTMLElement).focus();
     }
 
     componentWillUnmount(): void {
@@ -296,7 +301,11 @@ export class Gallery extends React.PureComponent<Props, State> {
             height: `calc((${rowHeightExpression})*${Math.ceil((objectsCount - lastDrawn) / columns)})`,
         };
 
-        return <section className={`gallery scale-${thumbnailSizing}`}>
+        return <section className={`gallery scale-${thumbnailSizing}`}
+            tabIndex={1}
+            ref={this.container}
+            onKeyDown={this.handleKeyDown}
+        >
             <ScrollPane contentRef={this.viewport}>
                 <div className="unrendered top"
                     ref={this.unrenderedTop}
@@ -374,16 +383,21 @@ export class Gallery extends React.PureComponent<Props, State> {
         }
     }
 
+    handleKeyDown = (ev: React.KeyboardEvent) => {
+        if (ev.key === "Escape")
+            this.props.browsing.clearSelection();
+    };
+
     onFilesChanged = (): void => {
         this.forceUpdate(() => this.onCatchup());
-    }
+    };
 
     onselectChanged = (): void => {
         if (this.state.selectAnchor === null)
             this.forceUpdate();
         else
             this.setState({selectAnchor: null});
-    }
+    };
 }
 
 export const Definition = {

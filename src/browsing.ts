@@ -50,6 +50,7 @@ export interface BrowsingService extends Properties, EventEmitter {
     registerComparerProvider(type: string, provider: ComparerProvider): void;
 
     addSelection(start: number, end: number): void;
+    clearSelection(): void;
     removeSelection(start: number, end: number): void;
 
     setFocus(index: number | null): void;
@@ -220,6 +221,10 @@ export function create(): [BrowsingService, (files: FilesView) => void] {
             newSelection.add(start++);
 
         setSelected(newSelection);
+    };
+
+    service.clearSelection = function() {
+        setSelected(new Set());
     };
 
     service.removeSelection = function(start: number, end: number): void {

@@ -61,6 +61,8 @@ export class Stage extends React.PureComponent<Props, State> {
     componentDidMount(): void {
         this.props.browsing.on("filefocus", this.handleFocusedFileChanged);
         this.props.transition.on("transition", this.handleTransition);
+
+        (this.container.current as HTMLElement).focus();
     }
 
     componentWillUnmount(): void {
@@ -88,7 +90,7 @@ export class Stage extends React.PureComponent<Props, State> {
         const cssClass = showActualSize ? "stage" : "stage fit";
 
         return <section className={cssClass}
-            tabIndex={0}
+            tabIndex={1}
             ref={this.container}
             onKeyDown={this.handleKeyDownShell}
         >

@@ -12,15 +12,24 @@ import * as React from "react";
 window.React = React;
 
 import {createBrowserHistory} from "history";
-const history = createBrowserHistory();
-history.replace("/gallery");
+
+const props = {
+    history: createBrowserHistory({
+        basename: window.location.pathname,
+    }),
+    api,
+    document,
+};
+
+import {Path as GalleryPath} from "./gallery";
+props.history.replace(GalleryPath);
 
 import {render} from "react-dom";
 import {Router} from "react-router";
 import {Application} from "./application";
 const application = (
-    <Router history={history}>
-        <Application api={api} document={document} />
+    <Router history={props.history}>
+        <Application {...props} />
     </Router>
 );
 

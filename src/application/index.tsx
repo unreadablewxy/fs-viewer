@@ -2,6 +2,7 @@ import "../elements.sass"
 
 import * as React from "react";
 import type {match} from "react-router-dom";
+import type {History} from "history";
 import {createSelector} from "reselect";
 import {ComponentDefinition as BaseComponentDefinition, ServiceLookup, HostBuilder} from "inconel";
 
@@ -23,6 +24,7 @@ import {
     MenuSpecificProps,
     ComponentDefinition,
 } from "../extension";
+import {Path as GalleryPath} from "../gallery";
 import {initialize as initializeOrdering} from "../ordering";
 import {ProgressService} from "../progress";
 import {Shell} from "../shell";
@@ -83,6 +85,7 @@ function inferUsedLocalPreferences(
 interface Props {
     readonly api: API;
     readonly document: Document;
+    readonly history: History;
 }
 
 interface GenericProps extends CommonComponentProps {
@@ -258,10 +261,7 @@ export class Application extends React.Component<Props, State> {
 
     componentDidMount(): void {
         this.startup().then(
-            // Compensating for shitty react typing decision
-            // https://github.com/DefinitelyTyped/DefinitelyTyped/issues/18365
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            statePatch => this.setState(statePatch as any),
+            statePatch => this.setState(statePatch as State),
             error => this.setState({errors: {["application"]: error}}));
     }
 
@@ -298,7 +298,19 @@ export class Application extends React.Component<Props, State> {
         if (path === this.state.workingPath)
             return;
 
-        const {files, preferences} = await this.props.api.openDirectory(path);
+        const {history, api} = this.props;
+
+        // Do not combine this with history.push block, browsers don't appreciate
+        // attempts to delete history. But this hack works because there's an
+        // async IO in between the two history calls
+        if (history.length > 1)
+            history.go(-(history.length - 1));
+
+        const {files, preferences} = await api.openDirectory(path);
+
+        if (history.length > 1)
+            history.push(GalleryPath);
+
         this.setFilesView(files);
         this.setState({
             workingPath: path,
