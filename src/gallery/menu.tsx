@@ -1,6 +1,7 @@
 import * as React from "react";
 import {mdiViewGrid} from "@mdi/js";
 
+import {NumericInput} from "../number-input";
 import {ScopeToggle} from "../scope-toggle";
 
 import {Path} from "./constants";
@@ -54,10 +55,7 @@ export class Menu extends React.PureComponent<Props> {
             <li>
                 <label>
                     <div>Columns</div>
-                    <input type="number"
-                        size={1}
-                        value={columns}
-                        onChange={this.handleColumnsChange} />
+                    <NumericInput value={columns} min={1} onChange={this.handleColumnsChange} />
                 </label>
                 <ScopeToggle
                     active={"columns" in localPreferences}
@@ -117,8 +115,7 @@ export class Menu extends React.PureComponent<Props> {
         </ul>;
     }
 
-    handleColumnsChange(ev: React.ChangeEvent<HTMLInputElement>): void {
-        const columns = parseInt(ev.target.value);
+    handleColumnsChange(columns: number): void {
         this.props.onSetPreferences({columns});
     }
 

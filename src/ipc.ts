@@ -1,26 +1,29 @@
-import type {ChildProcess} from "child_process";
-import type {Socket} from "net";
-import type {Writable} from "stream";
+export interface RPCProxy {
+    call(payload: Uint8Array): Promise<Uint8Array>;
+    close(): void;
+}
 
-export interface Request {
-    fill: number;
+export interface ProcessResult {
+    status: number;
+    out: string;
+    err: string;
+}
 
-    addString(value: string): this;
-
-    addUInt32(...values: number[]): this;
-    setUInt32(offset: number, value: number): this;
-
-    addUInt16(...values: number[]): this;
-    setUInt16(offset: number, value: number): this;
-
-    addUInt8(...values: number[]): this;
-    setUInt8(offset: number, value: number): this;
-
-    send(destination: Writable): void;
-};
+// Called when the other side of the IPC socket initiates a message
+export type EventListener = (data: Uint8Array) => Promise<Uint8Array>;
 
 export interface Service {
-    createRequest(maxSize?: number): Request;
-    connect(socketPath: string): Promise<Socket>;
-    spawn(executablePath: string, ...argv: string[]): ChildProcess;
+    connect(
+        socketPath: string,
+        disconnect?: () => void,
+        listener?: EventListener,
+    ): Promise<RPCProxy>;
+
+    spawn(
+        executablePath: string, 
+        listener?: EventListener,
+        ...argv: string[]
+    ): Promise<RPCProxy>;
+
+    execute(executablePath: string, ...argv: string[]): Promise<ProcessResult>;
 }

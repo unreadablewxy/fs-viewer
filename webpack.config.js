@@ -7,8 +7,11 @@ const path = require("path");
 const platform = os.platform();
 const pathBuild = path.resolve(__dirname, "build");
 
-var renderer = from("./src/index.tsx")
+var renderer = from("./src/index.ts")
     .to("web", pathBuild, "[chunkhash].js", "dev.js")
+    .withUnacceptableLicense("GPL-3.0")
+    .withDefine("BUILD_TYPE", "pub", "dev")
+    .withDefine("PLATFORM", os.platform())
     .withCss("index.css")
     .withReact()
     .withHtml("./src/index.html", "index.html")
@@ -16,19 +19,22 @@ var renderer = from("./src/index.tsx")
 
 var api = from("./src/api/index.ts")
     .to("electron-preload", pathBuild, "api.js")
-    .withNativeModules();
+    .withUnacceptableLicense("GPL-3.0");
 
 var main = from("./src/main/index.ts")
     .to("electron-main", pathBuild, "index.js")
-    .withLicenseHint("pause-stream", "0.0.11", "MIT")
-    .withLicenseHint("put", "0.0.6", "MIT")
-    .withNativeModules();
+    .withUnacceptableLicense("GPL-3.0")
+    .withNativeModules()
+    .withDefine("BUILD_TYPE", "pub", "dev")
+    .withExternals({
+        bindings: `require("bindings")`,
+    });
 
-if (platform === "linux") {
-    main = main.withFiles([
-        { from: "node_modules/abstract-socket/build/Release/bindings.node" },
-    ]);
-}
+    if (platform === "linux") {
+        main = main.withFiles([
+            { from: "node_modules/abstract-socket/build/Release/bindings.node" },
+        ]);
+    }
 
 module.exports = [
     renderer.build(),

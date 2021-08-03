@@ -1,5 +1,7 @@
 import {EventEmitter} from "events";
+
 import {Debounce} from "./debounce";
+import {method} from "./interface";
 import {Config, Stage, Provider, Pipeline} from "./pipeline";
 
 /**
@@ -179,70 +181,81 @@ export function create(): [BrowsingService, (files: FilesView) => void] {
             configurable: false,
             get: () => focusedFile,
         },
+        addFilter: { ...method, value: addFilter },
+        removeFilter: { ...method, value: removeFilter },
+        registerFilterProvider: { ...method, value: registerFilterProvider },
+        addComparer: { ...method, value: addComparer },
+        removeComparer: { ...method, value: removeComparer },
+        registerComparerProvider: { ...method, value: registerComparerProvider },
+        addSelection: { ...method, value: addSelection },
+        clearSelection: { ...method, value: clearSelection },
+        removeSelection: { ...method, value: removeSelection },
+        setFocus: { ...method, value: setFocus },
+        getSelectedNames: { ...method, value: getSelectedNames },
     }) as BrowsingService;
 
-    service.addFilter = async function(config: FilterConfig): Promise<number> {
+    async function addFilter(config: FilterConfig): Promise<number> {
         const id = await filters.add(config);
         filtersChanged = true;
         updateFilesList.schedule();
         return id;
-    };
+    }
 
-    service.removeFilter = function(id: number): void {
+    function removeFilter(id: number): void {
         filters.remove(id);
         filtersChanged = true;
         updateFilesList.schedule();
     }
 
-    service.registerFilterProvider = function(type: string, provider: FilterProvider): void {
+    function registerFilterProvider(type: string, provider: FilterProvider): void {
         filters.register(type, provider);
     }
 
-    service.addComparer = async function(config: ComparerConfig): Promise<number> {
+    async function addComparer(config: ComparerConfig): Promise<number> {
         const id = await comparers.add(config);
         comparersChanged = true;
         updateFilesList.schedule();
         return id;
     }
 
-    service.removeComparer = function(id: number): void {
+    function removeComparer(id: number): void {
         comparers.remove(id);
         comparersChanged = true;
         updateFilesList.schedule();
     }
 
-    service.registerComparerProvider = function(type: string, provider: ComparerProvider): void {
+    function registerComparerProvider(type: string, provider: ComparerProvider): void {
         comparers.register(type, provider);
     }
 
-    service.addSelection = function(start: number, end: number): void {
+    function addSelection(start: number, end: number): void {
         const newSelection = new Set(selected);
         while (start < end)
             newSelection.add(start++);
 
         setSelected(newSelection);
-    };
+    }
 
-    service.clearSelection = function() {
+    function clearSelection() {
         setSelected(new Set());
-    };
+    }
 
-    service.removeSelection = function(start: number, end: number): void {
+    function removeSelection(start: number, end: number): void {
         const newSelection = new Set(selected);
         while (start < end)
             newSelection.delete(start++);
 
         setSelected(newSelection);
-    };
+    }
 
-    service.setFocus = function(index: number | null): void {
+    function setFocus(index: number | null): void {
         if (focusedFile !== index) {
             focusedFile = index;
             service.emit("filefocus", index);
         }
-    };
+    }
 
-    service.getSelectedNames = function(): string[] | null {
+    function getSelectedNames(): string[] | null {
         if (selected.size < 1)
             return null;
 
@@ -253,7 +266,7 @@ export function create(): [BrowsingService, (files: FilesView) => void] {
             result[n++] = comparedFiles.names[v];
 
         return result;
-    };
+    }
 
     return [service, setFiles];
 }

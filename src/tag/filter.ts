@@ -1,5 +1,6 @@
 import {TaggingService} from "./service";
 
+import type {NamespaceID, TagID} from ".";
 import type {Filter, FilterConfig, FilterProvider} from "../browsing";
 
 export const UntaggedID = -1;

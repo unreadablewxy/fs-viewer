@@ -1,3 +1,4 @@
+@use 'sass:math'
 @import '../global.sass'
 
 #shell
@@ -70,7 +71,7 @@ nav
 
         svg
             @include svg-icon($nav-icon-size)
-            margin-top: ($nav-button-size - $nav-icon-size) / 2
+            margin-top: math.div($nav-button-size - $nav-icon-size, 2)
 
     .pill
         display: inline-block
@@ -87,7 +88,7 @@ nav
 .panel
     .background
         display: inline-block
-        border-radius: 0 0 $space-narrow/2 $space-narrow/2
+        border-radius: 0 0 math.div($space-narrow, 2) math.div($space-narrow, 2)
         background-color: $color-panel
         pointer-events: auto
         transition: box-shadow $time-resize-animation * 2, background-color $time-resize-animation

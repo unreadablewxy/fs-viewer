@@ -9,6 +9,7 @@ import type {Service as IPCService} from "./ipc";
 import type {Service as ReaderService} from "./reader";
 import type {BrowsingService} from "./browsing";
 import type {Service as TaggingService} from "./tag";
+import type {Service as WriterService} from "./writer";
 import type {TransitionService} from "./stage/transition-service";
 import type {PreferenceService} from "./application/preference-service";
 import type {ProgressService} from "./progress";
@@ -25,6 +26,7 @@ export interface BuiltinServices {
 
     // Readonly file system operations
     readonly reader: ReaderService;
+    readonly writer: WriterService;
 
     readonly browsing: BrowsingService;
     readonly tagging: TaggingService;

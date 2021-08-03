@@ -10,32 +10,6 @@ interface FilesView {
     names: string[];
 }
 
-type NamespaceID = number;
-
-interface TagNamespace {
-    /**
-     * A magic number that identifies tags translatable by this namespace
-     */
-    identifier: NamespaceID;
-
-    /**
-     * The tags that are available in the directory
-     */
-    names: Map<number, string>;
-
-    /**
-     * The next free to assign to a tag
-     */
-    nextId: number;
-}
-
-type TagID = number;
-
-interface Tags {
-    namespace: NamespaceID;
-    ids: Set<TagID>;
-}
-
 interface OpenDirectoryResult {
     /**
      * The default view
@@ -53,6 +27,8 @@ type Thumbnailer = "none" | "system" | "mapped";
 type ThumbnailSizing = "cover" | "full";
 
 type ThumbnailResolution = "default" | "high";
+
+type PanelPosition = "left" | "right" | "bottom" | "disable";
 
 interface Preferences {
     /**
@@ -99,6 +75,16 @@ interface Preferences {
      * The names of extensions to use
      */
     extensions: string[];
+
+    /**
+     * The position where the image lineup is docked
+     */
+    lineupPosition: PanelPosition;
+
+    /**
+     * The number of files to include in either directions
+     */
+    lineupEntries: number;
 }
 
 type PreferenceName = keyof Preferences;

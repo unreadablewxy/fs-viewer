@@ -1,12 +1,17 @@
 import {EventEmitter} from "events";
 
+import {method} from "../interface";
+
 export interface TransitionService extends EventEmitter {
     interval: number;
+    scaleToFit: boolean; // This really doesn't belong here, but functionality > purity
 
     setInterval(duration: number): void;
+    setScaleToFit(enabled: boolean): void;
 
     on(event: "transition", cb: () => void): this;
     on(event: "intervalchange", cb: () => void): this;
+    on(event: "scalingchange", cb: () => void): this;
 }
 
 type ModeChangeCallback = () => void;
@@ -24,6 +29,7 @@ type TimerProvider = {
 export function create(provider: TimerProvider): [TransitionService, ModeChangeCallback] {
     let timer: Timer | null = null;
     let interval: number = 0;
+    let scaleToFit: boolean = true;
 
     function stop() {
         if (timer !== null) {
@@ -35,15 +41,8 @@ export function create(provider: TimerProvider): [TransitionService, ModeChangeC
     function onTick() {
         service.emit("transition");
     }
-
-    const service = Object.defineProperties(new EventEmitter(), {
-        interval: {
-            configurable: false,
-            get: () => interval,
-        },
-    }) as TransitionService;
-
-    service.setInterval = function(duration: number): void {
+    
+    function setInterval(duration: number): void {
         if (duration === interval)
             return;
 
@@ -53,7 +52,27 @@ export function create(provider: TimerProvider): [TransitionService, ModeChangeC
 
         interval = duration;
         service.emit("intervalchange");
-    };
+    }
+
+    function setScaleToFit(enabled: boolean): void {
+        scaleToFit = enabled;
+        service.emit("scalingchange");
+    }
+
+    const service = Object.defineProperties(new EventEmitter(), {
+        interval: {
+            configurable: false,
+            get: () => interval,
+        },
+
+        scaleToFit: {
+            configurable: false,
+            get: () => scaleToFit,
+        },
+
+        setInterval: { ...method, value: setInterval },
+        setScaleToFit: { ...method, value: setScaleToFit },
+    }) as TransitionService;
 
     return [service, stop];
 }

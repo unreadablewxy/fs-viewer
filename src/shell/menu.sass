@@ -7,17 +7,20 @@ nav .menu
         > :first-child
             flex-grow: 1
 
+    button
+        height: $space-text-box-height
+
     .group
         display: flex
         flex-direction: row-reverse
 
         button
-            height: $space-text-box-height
             width: $nav-button-size
 
-        > *:first-child
+        > input:first-of-type
             flex-grow: 1
             flex-shrink: 1
+            width: 1em
 
         > *:not(:first-child)
             display: inline-block

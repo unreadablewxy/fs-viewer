@@ -1,69 +1,76 @@
-import {openDirectoryPrompt, openFilePrompt} from "./dialog";
+import {contextBridge} from "electron";
+
 import {
-    findUntaggedFiles,
-    openDirectory,
-    openTagsNamespace,
     joinPath,
-    loadTagsIndex,
-    loadFileTagIDs,
+
+    getFileStat,
+    openDirectory,
+    readDirectory,
     reduceTextFile,
-    saveTagsIndex,
-    saveFileTagIDs,
-    saveTagNamespace,
-    deleteTag,
-    clearTagIndex,
+
+    findTagNamespaceFile,
 } from "./files";
-import {getMaximzed, setMaximized, minimize, closeWindow} from "./window";
+
+import {
+    createIPCConnection,
+    createWorkerProcess,
+    executeProgram,
+} from "./ipc";
+
+import {fs, window} from "./main-proxy";
+
 import {
     loadPreferences,
     savePreferences,
     getExtensionRoot,
     getExtensions,
 } from "./preferences";
-import {
-    createIPCConnection,
-    spawnChildProcess,
-    Request,
-} from "./ipc";
 
-const api = Object.freeze({
-    openDirectoryPrompt,
-    openFilePrompt,
+function create() {
+    return Object.freeze({
+        joinPath,
 
-    findUntaggedFiles,
-    openDirectory,
-    openTagsNamespace,
-    joinPath,
-    loadTagsIndex,
-    loadFileTagIDs,
-    reduceTextFile,
-    saveTagsIndex,
-    saveFileTagIDs,
-    saveTagNamespace,
-    deleteTag,
-    clearTagIndex,
+        getFileStat,
+        openDirectory,
+        readDirectory,
+        reduceTextFile,
 
-    getMaximzed,
-    setMaximized,
-    minimize,
-    closeWindow,
+        findTagNamespaceFile,
 
-    loadPreferences,
-    savePreferences,
-    getExtensionRoot,
-    getExtensions,
+        fs,
+        window,
 
-    createIPCConnection,
-    spawnChildProcess,
-    Request,
-});
+        createIPCConnection,
+        createWorkerProcess,
+        executeProgram,
+
+        loadPreferences,
+        savePreferences,
+        getExtensionRoot,
+        getExtensions,
+    });
+}
+
+let api: API | null = create();
+
+function acquire(): API {
+    const acquired = api;
+    if (!acquired) {
+        throw new Error("API already acquired by privileged code");
+    }
+
+    api = null
+    return acquired;
+}
 
 declare global {
-    type API = typeof api;
+    type API = ReturnType<typeof create>;
 
     interface Window {
-        api?: API;
+        api: {
+            acquire(): API,
+        },
     }
 }
 
-window.api = api;
+contextBridge.exposeInMainWorld("api", {acquire});

@@ -2,7 +2,10 @@ import * as React from "react";
 
 interface Props {
     children: React.ReactNode;
-    onDrag: (dragging: boolean) => void;
+    atStart: boolean;
+    atEnd: boolean;
+    onNavigatePrev(): void;
+    onNavigateNext(): void;
 }
 
 interface Coordinate {
@@ -39,7 +42,12 @@ export class Center extends React.PureComponent<Props, State> {
 
     public render(): React.ReactNode {
         const {anchor, offset, scale} = this.state;
-        const otherProps: React.HTMLAttributes<HTMLDivElement> = {};
+        const otherProps: React.HTMLAttributes<HTMLDivElement> = {
+            onMouseDown: this.handleMouseDown,
+            onMouseUp: this.handleMouseUp,
+            onWheel: this.handleMouseWheel,
+        };
+
         if (anchor)
             otherProps.onMouseMove = this.handleMouseMove;
 
@@ -47,19 +55,24 @@ export class Center extends React.PureComponent<Props, State> {
             transform: `translate(${offset.x}px, ${offset.y}px) scale(${scale})`,
         };
 
-        return <div className="center"
-            onMouseDown={this.handleMouseDown}
-            onMouseUp={this.handleMouseUp}
-            onWheel={this.handleMouseWheel}
-            {...otherProps}
-        >
-            <div style={style}>{this.props.children}</div>
+        const dragging = !!anchor;
+
+        return <div className="center">
+            <div {...otherProps}>
+                <div style={style}>{this.props.children}</div>
+            </div>
+
+            <button disabled={dragging || this.props.atStart}
+                onClick={this.props.onNavigatePrev}
+            />
+            <button disabled={dragging || this.props.atEnd}
+                onClick={this.props.onNavigateNext}
+            />
         </div>;
     }
 
     private handleMouseUp(): void {
         this.setState({anchor: null});
-        this.props.onDrag(false);
     }
 
     private handleMouseMove({pageX, pageY}: DIVMouseEvent): void {
@@ -85,8 +98,6 @@ export class Center extends React.PureComponent<Props, State> {
             y: pageY - p.offset.y,
           },
         }));
-
-        this.props.onDrag(true);
     }
 
     private handleMouseWheel({deltaY}: React.WheelEvent<HTMLDivElement>): void {

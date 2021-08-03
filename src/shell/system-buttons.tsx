@@ -7,52 +7,72 @@ import {
     mdiWindowRestore,
 } from "@mdi/js";
 
+import {Debounce} from "../debounce";
+import type {WindowService} from "../window";
+
 interface Props {
-    api: API;
+    window: WindowService;
 }
 
 interface State {
     maximized: boolean;
+    hidden: boolean;
 }
 
 export class SystemButtons extends React.PureComponent<Props, State> {
+    private readonly update = new Debounce(async () => {
+        const status = await this.props.window.getStatus();
+        this.setState({
+            hidden: status.tabletMode,
+            maximized: status.maximized,
+        });
+    }, 100);
+
     constructor(props: Props) {
         super(props);
 
         this.state = {
-            maximized: props.api.getMaximzed(),
+            maximized: false,
+            hidden: false,
         };
-
-        this.handleToggleMaximized = this.handleToggleMaximized.bind(this);
     }
 
-    public handleToggleMaximized(): void {
-        this.props.api.setMaximized(!this.state.maximized);
+    handleToggleMaximized = () => {
+        if (this.state.maximized)
+            this.props.window.unmaximize();
+        else
+            this.props.window.maximize();
     }
 
-    public componentDidMount(): void {
-        window.addEventListener("maximize", () => {
+    componentDidMount(): void {
+        const {window} = this.props;
+        
+        window.on("maximize", () => {
             this.setState({maximized: true});
         });
 
-        window.addEventListener("unmaximize", () => {
+        window.on("unmaximize", () => {
             this.setState({maximized: false});
         });
+
+        window.on("resize", () => {
+            this.update.schedule();
+        });
+
+        this.update.schedule();
     }
 
-    public render(): React.ReactNode {
-        const {api} = this.props;
-        const {maximized} = this.state;
-
-        return <div className="background system">
+    render(): React.ReactNode {
+        const {window} = this.props;
+        return !this.state.hidden && <div className="background system">
             <ul className="actions">
-                <li onClick={api.minimize}>
+                <li onClick={window.minimize}>
                     <Icon path={mdiWindowMinimize} />
                 </li>
                 <li onClick={this.handleToggleMaximized}>
-                    <Icon path={maximized ? mdiWindowRestore : mdiWindowMaximize} />
+                    <Icon path={this.state.maximized ? mdiWindowRestore : mdiWindowMaximize} />
                 </li>
-                <li onClick={api.closeWindow}>
+                <li onClick={window.close}>
                     <Icon path={mdiWindowClose} />
                 </li>
             </ul>

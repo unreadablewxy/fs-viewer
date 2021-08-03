@@ -5,6 +5,8 @@ import {BrowsingService} from "../browsing";
 import {Thumbnail} from "../thumbnail";
 
 interface PreferenceMappedProps {
+    lineupEntries: number;
+    lineupPosition: PanelPosition;
     thumbnailPath?: string;
     thumbnailSizing: ThumbnailSizing;
     thumbnailResolution?: ThumbnailResolution;
@@ -31,7 +33,7 @@ export class Lineup extends React.PureComponent<Props> {
 
     render() {
         const {files, selected} = this.props.browsing;
-        const adjacents = 6;
+        const adjacents = this.props.lineupEntries;
 
         const focusedFile = this.props.browsing.focusedFile || 0;
         let firstDrawn: number;
@@ -49,7 +51,7 @@ export class Lineup extends React.PureComponent<Props> {
 
         const names = files.names.slice(firstDrawn, lastDrawn + 1);
 
-        return <div className="lineup">
+        return <div className={`lineup dock-${this.props.lineupPosition}`}>
             <ul>
             {names.map((_, i) => {
                 const index = i + firstDrawn;

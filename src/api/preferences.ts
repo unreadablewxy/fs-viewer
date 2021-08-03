@@ -1,39 +1,38 @@
-import {remote} from "electron";
-import {existsSync, readdir, readFile, mkdir, writeFile} from "fs";
+import {existsSync, promises as afs} from "fs";
 import {join as joinPath, sep as pathSeparator} from "path";
-import {promisify} from "util";
+import type {RendererArguments} from "../ipc.contract";
 
-const mkdirAsync = promisify(mkdir);
-const readdirAsync = promisify(readdir);
-const readFileAsync = promisify(readFile);
-const writeFileAsync = promisify(writeFile);
-
-const defaultPreferences: Preferences = {
+export const defaultPreferences: Preferences = {
     columns: 6,
     order: 0,
     thumbnail: "system",
     thumbnailSizing: "cover",
     preload: 1,
     extensions: [],
+    lineupPosition: "bottom",
+    lineupEntries: 3,
 };
 
 export const rcFileName = ".viewerrc";
 
 const configEncoding = "utf8";
-const configRootPath = joinPath(remote.app.getPath("appData"), "fs-viewer");
-const configFilePath = joinPath(configRootPath, "config.json");
 
-async function writePreferences(
+const [homePath, statePath] = process.argv.slice(process.argv.length - 2) as RendererArguments;
+const configRoot = joinPath(statePath, "fs-viewer");
+const configFilePath = joinPath(configRoot, "config.json");
+const extensionRoot = joinPath(homePath, ".fs-viewer-extensions");
+
+function writePreferences(
     value: Partial<Preferences>,
     path: string,
 ): Promise<void> {
-    return writeFileAsync(path, JSON.stringify(value), configEncoding);
+    return afs.writeFile(path, JSON.stringify(value), configEncoding);
 }
 
-export async function loadPreferenceFile(
+export function loadPreferenceFile(
     path: string,
 ): Promise<Partial<Preferences>> {
-    return readFileAsync(path, configEncoding).then(JSON.parse);
+    return afs.readFile(path, configEncoding).then(JSON.parse);
 }
 
 export async function savePreferences(value: Preferences): Promise<void>;
@@ -46,30 +45,32 @@ export async function savePreferences(
     if (directory) {
         path = joinPath(directory, rcFileName);
     } else {
-        directory = configRootPath;
+        directory = configRoot;
         path = configFilePath;
     }
 
-    return existsSync(directory)
-        ? writePreferences(value, path)
-        : mkdirAsync(directory, {recursive: true}).then(
-            () => writePreferences(value, path));
+    if (!existsSync(directory))
+        await afs.mkdir(directory, {recursive: true});
+
+    return writePreferences(value, path);
 }
 
-const configLoadTask = loadPreferenceFile(configFilePath)
-    .then(d => Object.assign({}, defaultPreferences, d))
-    .catch(() => defaultPreferences);
-
-export async function loadPreferences(): Promise<Preferences> {
-    return configLoadTask;
+export function loadPreferences(): Promise<Preferences> {
+    return loadPreferenceFile(configFilePath)
+        .then(d => Object.assign({}, defaultPreferences, d))
+        .catch(() => defaultPreferences);
 }
 
 export function getExtensionRoot(): string {
-    return joinPath(remote.app.getPath("home"), ".fs-viewer-extensions") + pathSeparator;
+    return extensionRoot + pathSeparator;
+}
+
+export function getHomePath(): string {
+    return homePath;
 }
 
 export async function getExtensions(): Promise<string[]> {
-    const paths = await readdirAsync(getExtensionRoot(), {withFileTypes: true});
+    const paths = await afs.readdir(getExtensionRoot(), {withFileTypes: true});
     const result = new Array<string>();
     for (let n = 0; n < paths.length; ++n)
         if (paths[n].isDirectory())

@@ -1,36 +1,68 @@
 @import "../global.sass"
 
 .stage .lineup
-    padding-top: $space-narrow
     position: relative
-    width: 100%
-    height: 10vh
     overflow: hidden
+
+    &.dock-left
+        padding-right: $space-narrow
+        float: left
+
+    &.dock-right
+        padding-left: $space-narrow
+        float: right
+
+    &.dock-bottom
+        padding-top: $space-narrow
+        height: 10vh
+        width: 100%
+
+        .thumbnail
+            width: 10vh
+            height: 100%
+
+        ul
+            height: 100%
+            left: 50%
+            transform: translate(-50%, 0)
+            white-space: nowrap
+
+            > li
+                width: 9vw
+
+            > li:not(:last-child)
+                margin-right: $space-narrow
+
+    &.dock-left, &.dock-right
+        height: 100%
+        width: 10vw
+
+        .thumbnail
+            height: 10vh
+            width: 100%
+
+        ul
+            width: 100%
+            top: 50%
+            transform: translate(0, -50%)
+
+            > li
+                height: 9vh
+
+            > li:not(:last-child)
+                margin-bottom: $space-narrow
 
     ul
         display: block
         position: absolute
-        left: 50%
-        transform: translate(-50%)
-        height: 100%
 
         list-style: none
         padding: 0
         margin: 0
 
-        white-space: nowrap
         text-align: center
 
-        > li
-            width: 9vw
-
-        > li:not(:last-child)
-            margin-right: $space-narrow
-
     .thumbnail
-        width: 10vh
-        height: 100%
-
         &.anchor
             outline: 4px solid #FFF
 

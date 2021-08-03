@@ -4,14 +4,15 @@ import * as React from "react";
 import type {match} from "react-router-dom";
 import type {History} from "history";
 import {createSelector} from "reselect";
-import {ComponentDefinition as BaseComponentDefinition, ServiceLookup, HostBuilder} from "inconel";
+import {ComponentDefinition as BaseComponentDefinition, ServiceLookup, HostBuilder, BuiltinNamespace} from "inconel";
 
+import type {WindowService} from "../window";
 import {create as createBrowsingService} from "../browsing";
+import {stringifyError} from "../error";
 import {
     BuiltinServices,
     CommonComponentProps,
 
-    ExtraDefinition,
     ExtraSpecificDefs,
 
     Extension,
@@ -86,6 +87,7 @@ interface Props {
     readonly api: API;
     readonly document: Document;
     readonly history: History;
+    readonly window: WindowService;
 }
 
 interface GenericProps extends CommonComponentProps {
@@ -134,21 +136,40 @@ const InitialState = {
     modes: [],
 };
 
-function mapProps(
-    def: MenuDefinition<string, unknown>,
-    props: GenericProps & MenuSpecificProps,
-): CommonComponentProps & MenuSpecificProps;
-function mapProps(
-    def: ExtraDefinition<string, unknown>,
-    props: GenericProps,
-): CommonComponentProps;
-function mapProps(
+function mapProps<Passthrough>(
     def: ComponentDefinition<string, unknown, any>,
-    props: GenericProps | (GenericProps & MenuSpecificProps),
-): CommonComponentProps | (CommonComponentProps & MenuSpecificProps) {
+    props: GenericProps & Passthrough,
+): CommonComponentProps & Passthrough {
     return def.selectPreferences
         ? Object.assign(props, def.selectPreferences(props.preferences))
         : props;
+}
+
+function mapMenuProps(
+    def: MenuDefinition<string, unknown>,
+    props: GenericProps & MenuSpecificProps,
+    namespace: string,
+): CommonComponentProps & MenuSpecificProps {
+    const result = mapProps(def, props);
+    const {onSetPreferences, onTogglePreferenceScope} = result;
+    if (namespace !== BuiltinNamespace) {
+        result.onSetPreferences = (values: Record<string, unknown>) => {
+            if (values) {
+                const mapped: Record<string, unknown> = {};
+                const keys = Object.keys(values);
+                for (let n = keys.length; n --> 0;)
+                    mapped[`${namespace}.${keys[n]}`] = values[keys[n]];
+
+                onSetPreferences(mapped);
+            }
+        };
+
+        result.onTogglePreferenceScope = (name: string) => {
+            onTogglePreferenceScope(`${namespace}.${name}` as keyof Preferences);
+        };
+    }
+    
+    return result;
 }
 
 function mapModeProps(
@@ -159,21 +180,6 @@ function mapModeProps(
     return def.selectRouteParams
         ? Object.assign(result, def.selectRouteParams(props.location, props.match))
         : result;
-}
-
-const excludedErrorProperties: {[k in string]: 1} = {
-    message: 1,
-    stack: 1,
-    name: 1,
-};
-
-function stringifyError(err: Error): string {
-    let result = `${err.message}\n`;
-
-    for (const n of Object.getOwnPropertyNames(err)) if (!excludedErrorProperties[n])
-        result += `\t${n}: ${JSON.stringify(err[n as keyof Error])}\n`;
-
-    return result;
 }
 
 /**
@@ -197,7 +203,30 @@ export class Application extends React.Component<Props, State> {
         const [transition, stopTransitions] = createTransitionService(window);
         this.stopTransitions = stopTransitions;
 
-        const tagging = createTaggingService(props.api, browsing);
+        const reader = {
+            joinPath: props.api.joinPath,
+
+            readDirectory: props.api.readDirectory,
+            getStat: props.api.getFileStat,
+
+            getAttr: props.api.fs.getAttr,
+
+            loadObject: props.api.fs.loadObject,
+            loadTextFile: props.api.fs.loadText,
+            reduceTextFile: props.api.reduceTextFile,
+        };
+
+        const writer = {
+            setAttr: props.api.fs.setAttr,
+            removeAttr: props.api.fs.removeAttr,
+
+            patchObject: props.api.fs.patchObject,
+            patchTextFile: props.api.fs.patchText,
+
+            flush: props.api.fs.flush,
+        };
+
+        const tagging = createTaggingService(reader, writer, props.api.findTagNamespaceFile, browsing);
 
         const [preference, preferenceChanged] = createPreferenceService();
         this.onPreferenceChanged = preferenceChanged;
@@ -206,18 +235,16 @@ export class Application extends React.Component<Props, State> {
 
         this.builtinServices = {
             ipc: {
-                createRequest: (size) => new props.api.Request(size),
                 connect: props.api.createIPCConnection,
-                spawn: props.api.spawnChildProcess,
+                spawn: props.api.createWorkerProcess,
+                execute: props.api.executeProgram,
             },
             dialog: {
-                openDirectoryPrompt: props.api.openDirectoryPrompt,
-                openFilePrompt: props.api.openFilePrompt,
+                openDirectoryPrompt: props.api.window.promptDirectory,
+                openFilePrompt: props.api.window.promptFile,
             },
-            reader: {
-                joinPath: props.api.joinPath,
-                reduceTextFile: props.api.reduceTextFile,
-            },
+            reader,
+            writer,
             browsing,
             tagging,
             transition,
@@ -238,7 +265,7 @@ export class Application extends React.Component<Props, State> {
         const loader = new WebExtensionLoader(api.getExtensionRoot());
         const extensionHost = new HostBuilder<Extension>(loader, document)
             .withBuiltinServices(this.builtinServices as unknown as ServiceLookup)
-            .withReactComponents<GenericProps & MenuSpecificProps, "menus">("menus", mapProps, builtinMenus)
+            .withReactComponents<GenericProps & MenuSpecificProps, "menus">("menus", mapMenuProps, builtinMenus)
             .withReactComponents<GenericModeProps, "modes">("modes", mapModeProps, builtinModes)
             .withReactComponents<GenericProps, "extras">("extras", mapProps)
             .build();
@@ -262,18 +289,21 @@ export class Application extends React.Component<Props, State> {
     componentDidMount(): void {
         this.startup().then(
             statePatch => this.setState(statePatch as State),
-            error => this.setState({errors: {["application"]: error}}));
+            error => this.setState({errors: {["application"]: error}})
+        );
     }
 
     render(): React.ReactNode {
         const {errors} = this.state;
-        if (errors)
-            return <pre>{Object.keys(errors).map(src => `${src}: ${stringifyError(errors[src])}`).join("\n")}</pre>;
+        if (errors) return <pre>{
+            Object.keys(errors).
+                map(src => `${src}: ${stringifyError(errors[src])}`).
+                join("\n")
+        }</pre>;
 
         const preferences = getEffectivePreferencesMemoized(this.state);
         if (preferences) return <Shell
-            api={this.props.api}
-
+            window={this.props.window}
             workingPath={this.state.workingPath}
 
             preferences={preferences}
@@ -294,8 +324,9 @@ export class Application extends React.Component<Props, State> {
         return null;
     }
 
-    async handleOpenDirectory(path: string): Promise<void> {
-        if (path === this.state.workingPath)
+    async handleOpenDirectory(): Promise<void> {
+        const path = await this.props.api.window.promptDirectory();
+        if (!path || path === this.state.workingPath)
             return;
 
         const {history, api} = this.props;

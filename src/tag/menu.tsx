@@ -14,6 +14,8 @@ import {TagList, Tag} from "./list";
 import {TaggingService} from "./service";
 import {ProgressService} from "../progress";
 
+import type {TagID, Tags} from ".";
+
 const mapFiltersToSelectedTagsMemoized = createSelector(
     (filters: ReadonlyArray<FilterConfig>) => filters,
     (filters: ReadonlyArray<FilterConfig>): Set<number> => {
@@ -82,7 +84,6 @@ export class Filter extends React.PureComponent<Props, State> {
 
         this.handleToggleTag = this.handleToggleTag.bind(this);
         this.handleCreateTag = this.handleCreateTag.bind(this);
-        this.handleClearTagCache = this.handleClearTagCache.bind(this);
         this.resortTags = this.resortTags.bind(this);
         this.handleFileFocus = this.handleFileFocus.bind(this);
         this.handleFileTagChange = this.handleFileTagChange.bind(this);
@@ -182,13 +183,8 @@ export class Filter extends React.PureComponent<Props, State> {
                 onCreateTag={this.handleCreateTag}
                 onRenameTag={this.props.tagging.renameTag}
                 onDeleteTag={this.props.tagging.deleteTag}
-                onClearTagCache={this.handleClearTagCache}
             />}
         </ul>;
-    }
-
-    handleClearTagCache(tag: TagID): void {
-        this.props.tagging.clearCache(tag);
     }
 
     // TODO: Batch tagging shouldn't use the toggling approach, remove this when

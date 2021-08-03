@@ -1,120 +1,71 @@
-import {app, BrowserWindow, BrowserWindowConstructorOptions} from "electron";
-import {writeFileSync, readFile} from "fs";
-import path from "path";
+import {app as runtime, ipcMain} from "electron";
+import {join as joinPath} from "path";
 
-import {Debounce} from "../debounce";
+import {ChannelName, RequestType} from "../ipc.contract";
 
+import {CachedFileSystem} from "./file";
 import {registerThumbnailProtocol} from "./thumbnail";
+import {ClientWindow} from "./window";
 
-// Keep a global reference of the window object, if you don"t, the window will
-// be closed automatically when the JavaScript object is garbage collected.
-let mainWindow: BrowserWindow | null;
+export type {Status as WindowStatus} from "./window";
 
-function handleMainWindowClosed(): void {
-    // Dereference the window object, usually you would store windows
-    // in an array if your app supports multi windows, this is the time
-    // when you should delete the corresponding element.
-    mainWindow = null;
-}
+const fs = new CachedFileSystem();
 
-interface WindowState extends Pick<BrowserWindowConstructorOptions, "x"|"y"|"width"|"height"> {
-    maximized?: boolean;
-}
+const configRoot = joinPath(runtime.getPath("appData"), "fs-viewer");
+const loadWinStateTask = fs.loadObject(configRoot, "window-state.json");
+let mainWindow: ClientWindow;
 
-let windowState: WindowState = {
-    width: 800,
-    height: 600,
+// Handlers have divergent arguments so any other type will be just as useless
+type IPCHandler<R> = (...args: any[]) => R; // eslint-disable-line @typescript-eslint/no-explicit-any
+
+const sharedHandlers: Partial<Record<RequestType, IPCHandler<unknown>>> = {
+    [RequestType.WindowShow]:               () => loadWinStateTask.then(s => mainWindow.show(s)),
+
+    [RequestType.FileSetAttr]:              fs.setAttribute.bind(fs),
+    [RequestType.FileRemoveAttr]:           fs.removeAttribute.bind(fs),
+    [RequestType.FileGetAttr]:              fs.getAttribute.bind(fs),
+
+    [RequestType.FileLoadObject]:           fs.loadObject.bind(fs),
+    [RequestType.FilePatchObject]:          fs.patchObject.bind(fs),
+
+    [RequestType.FileLoadText]:             fs.loadTextFile.bind(fs),
+    [RequestType.FilePatchText]:            fs.patchTextFile.bind(fs),
+
+    [RequestType.FileFlush]:                fs.flush.bind(fs),
 };
 
-const windowStateFilePath = path.join(
-    app.getPath("appData"), "fs-viewer", "window-state.json");
+const dispatchedHandlers: Partial<Record<RequestType, IPCHandler<unknown>>> = {
+    [RequestType.WindowClose]:              ClientWindow.prototype.close,
+    [RequestType.WindowMaximize]:           ClientWindow.prototype.maximize,
+    [RequestType.WindowUnmaximize]:         ClientWindow.prototype.unmaximize,
+    [RequestType.WindowMinimize]:           ClientWindow.prototype.minimize,
+    [RequestType.WindowGetStatus]:          ClientWindow.prototype.getStatus,
+    [RequestType.WindowPromptDirectory]:    ClientWindow.prototype.openDirectoryPrompt,
+    [RequestType.WindowPromptFile]:         ClientWindow.prototype.openFilePrompt,
+};
 
-const saveWindowState = new Debounce(function saveWindowState() {
-    writeFileSync(windowStateFilePath, JSON.stringify(windowState));
-    console.log("Saving window state");
-}, 2000);
+ipcMain.handle(ChannelName, (ev, type, ...params) => {
+    let handler = sharedHandlers[type as RequestType];
+    if (handler)
+        return handler(...params);
 
-const loadStateTask = new Promise<void>((resolve) => {
-    readFile(windowStateFilePath, { encoding:"utf-8" }, (err, data) => {
-        if (!err) {
-            try {
-                windowState = Object.assign(windowState, JSON.parse(data));
-            } catch (e) {
-                // Ignore failures
-            }
-        }
-
-        resolve();
-    });
+    handler = dispatchedHandlers[type as RequestType];
+    if (handler)
+        return handler.call(mainWindow, params);
+    else
+        console.error(`Unsupported RPC request id: ${type}`);
 });
 
-interface WindowEvent {
-    sender: BrowserWindow
-}
-
-function handleWindowMove({sender}: WindowEvent) {
-    windowState = sender.getBounds();
-    windowState.maximized = sender.isMaximized();
-    saveWindowState.schedule();
-}
-
-function createWindow(): void {
-    const {maximized, ...optionsPatch} = windowState;
-
-    mainWindow = new BrowserWindow({
-        ...optionsPatch,
-        frame: false,
-        minWidth: 600,
-        minHeight: 400,
-        backgroundColor: "#000",
-        show: false,
-        paintWhenInitiallyHidden: true,
-        webPreferences: {
-            preload: path.join(app.getAppPath(), "build/api.js"),
-            enableRemoteModule: true,
-        },
-    });
-
-    mainWindow.setMenu(null);
-    mainWindow.loadFile("build/index.html");
-
-    if (maximized)
-        mainWindow.maximize();
-
-    // Open the DevTools.
-    // mainWindow.webContents.openDevTools()
-
-    mainWindow.once("closed", handleMainWindowClosed);
-    mainWindow.once("ready-to-show", () => {
-        if (mainWindow) {
-            mainWindow.on("move", handleWindowMove);
-            mainWindow.on("resize", handleWindowMove);
-            mainWindow.show();
-        }
-    });
-}
-
-function onReady(): void {
-    Promise.all([loadStateTask, registerThumbnailProtocol()]).then(() => {
-        createWindow();
-    });
-}
+// Quit when all windows are closed.
+runtime.on("window-all-closed", async function onAllWindowsClosed(): Promise<void> {
+    await fs.flush();
+    runtime.quit();
+});
 
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
-app.on("ready", onReady);
-
-// Quit when all windows are closed.
-app.on("window-all-closed", () => {
-    // On macOS it is common for applications and their menu bar
-    // to stay active until the user quits explicitly with Cmd + Q
-    if (process.platform !== "darwin") app.quit();
-});
-
-app.on("activate", () => {
-    // On macOS it"s common to re-create a window in the app when the
-    // dock icon is clicked and there are no other windows open.
-    if (mainWindow === null)
-        createWindow();
+runtime.on("ready", async function onReady(): Promise<void> {
+    await registerThumbnailProtocol();
+    mainWindow = new ClientWindow(s => fs.patchObject(configRoot, "window-state.json", s));
 });

@@ -1,13 +1,27 @@
+import "./menu.sass";
 import * as React from "react";
 import {Icon} from "@mdi/react";
-import {mdiPlay, mdiStop, mdiImageSizeSelectActual, mdiFitToPage, mdiImageMove} from "@mdi/js";
+import {
+    mdiClose,
+    mdiDockBottom,
+    mdiDockLeft,
+    mdiDockRight,
+    mdiPlay,
+    mdiStop,
+    mdiImageSizeSelectActual,
+    mdiFitToPage,
+    mdiViewCarousel
+} from "@mdi/js";
 
 import {ScopeToggle} from "../scope-toggle";
 
 import {Path} from "./constants";
 import {TransitionService} from "./transition-service";
+import { NumericInput } from "../number-input";
 
 interface PreferenceMappedProps {
+    lineupEntries: number;
+    lineupPosition: PanelPosition;
     preload: number;
 }
 
@@ -18,24 +32,72 @@ interface Props extends PreferenceMappedProps {
 
     localPreferences: PreferenceNameSet;
     onTogglePreferenceScope(name: keyof Preferences): void;
-
-    showActualSize: boolean;
-    onToggleScaling(): void;
 }
+
+function RadioButtons({
+    options,
+    value,
+    onChange,
+}: {
+    options: {id: string, title: string, icon: string}[], 
+    value: string,
+    onChange(value: string): void,
+}) {
+    return <div className="radio-buttons">
+        {options.map(v => <button key={v.id}
+            className={value === v.id ? "active" : undefined}
+            title={v.title}
+            onClick={() => onChange(v.id)}>
+                <Icon path={v.icon} />
+            </button>)}
+    </div>;
+}
+
+const lineupDockingModes: {
+    id: PanelPosition, title: string, icon: string
+}[] = [
+    {
+        id: "disable",
+        title: "Disable",
+        icon: mdiClose,
+    },
+    {
+        id: "bottom",
+        title: "Dock bottom",
+        icon: mdiDockBottom,
+    },
+    {
+        id: "left",
+        title: "Dock left",
+        icon: mdiDockLeft,
+    },
+    {
+        id: "right",
+        title: "Dock right",
+        icon: mdiDockRight,
+    },
+];
 
 export class Menu extends React.PureComponent<Props> {
     private readonly redraw: () => void;
     private readonly togglePreloadScope: () => void;
+    private readonly toggleLineupPositionScope: () => void;
+    private readonly toggleLineupEntriesScope: () => void;
 
     constructor(props: Props) {
         super(props);
         this.redraw = this.forceUpdate.bind(this);
 
         this.togglePreloadScope = () => this.props.onTogglePreferenceScope("preload");
+        this.toggleLineupPositionScope = () => this.props.onTogglePreferenceScope("lineupPosition");
+        this.toggleLineupEntriesScope = () => this.props.onTogglePreferenceScope("lineupEntries");
 
-        this.handleToggleTransition = this.handleToggleTransition.bind(this);
         this.handlePreloadChanged = this.handlePreloadChanged.bind(this);
+        this.handleSetLineupEntries = this.handleSetLineupEntries.bind(this);
+        this.handleSetLineupPosition = this.handleSetLineupPosition.bind(this);
+        this.handleToggleTransition = this.handleToggleTransition.bind(this);
         this.handleTransitionIntervalChanged = this.handleTransitionIntervalChanged.bind(this);
+        this.toggleScaleToFit = this.toggleScaleToFit.bind(this);
 
         this.props.transition.on("intervalchange", this.redraw);
     }
@@ -48,19 +110,18 @@ export class Menu extends React.PureComponent<Props> {
         const {
             localPreferences,
             preload,
-            showActualSize,
-            onToggleScaling,
+            transition,
         } = this.props;
 
         const transitionInterval = this.props.transition.interval;
 
-        return <ul className="menu thumbnails">
+        return <ul className="menu stage">
             <li>
                 <label>
                     <div>Scaling</div>
-                    <button className="toggle" onClick={onToggleScaling}>
-                        <Icon path={showActualSize ? mdiImageSizeSelectActual : mdiFitToPage} />
-                        <span>{showActualSize ? "Actual size" : "Show all"}</span>
+                    <button className="toggle" onClick={this.toggleScaleToFit}>
+                        <Icon path={transition.scaleToFit ? mdiFitToPage : mdiImageSizeSelectActual} />
+                        <span>{transition.scaleToFit ? "Scale to fit" : "Actual size"}</span>
                     </button>
                 </label>
             </li>
@@ -81,24 +142,50 @@ export class Menu extends React.PureComponent<Props> {
             <li>
                 <label>
                     <div>Files to preload</div>
-                    <input type="number"
-                        size={1}
-                        min="0"
-                        max="9"
-                        value={preload}
-                        onChange={this.handlePreloadChanged} />
+                    <NumericInput value={preload} min={0} max={9} onChange={this.handlePreloadChanged} />
                 </label>
                 <ScopeToggle
                     active={"preload" in localPreferences}
                     onClick={this.togglePreloadScope} />
             </li>
+            <li>
+                <label htmlFor="">
+                    <div>Lineup location</div>
+                    <RadioButtons
+                        options={lineupDockingModes}
+                        value={this.props.lineupPosition}
+                        onChange={this.handleSetLineupPosition} />
+                </label>
+                <ScopeToggle
+                    active={"lineupPosition" in localPreferences}
+                    onClick={this.toggleLineupPositionScope} />
+            </li>
+            {this.props.lineupPosition !== "disable" && <li>
+                <label>
+                    <div>Lineup look ahead</div>
+                    <NumericInput
+                        value={this.props.lineupEntries}
+                        min={0}
+                        max={9}
+                        onChange={this.handleSetLineupEntries} />
+                </label>
+                <ScopeToggle
+                    active={"lineupEntries" in localPreferences}
+                    onClick={this.toggleLineupEntriesScope} />
+            </li>}
         </ul>;
     }
 
-    handlePreloadChanged(ev: React.ChangeEvent<HTMLInputElement>): void {
-        const preload = parseInt(ev.target.value) || 0;
-        if (preload !== this.props.preload)
-            this.props.onSetPreferences({preload});
+    handlePreloadChanged(preload: number): void {
+        this.props.onSetPreferences({preload});
+    }
+
+    handleSetLineupEntries(lineupEntries: number): void {
+        this.props.onSetPreferences({lineupEntries});
+    }
+
+    handleSetLineupPosition(lineupPosition: PanelPosition): void {
+        this.props.onSetPreferences({lineupPosition});
     }
 
     handleToggleTransition(): void {
@@ -112,15 +199,29 @@ export class Menu extends React.PureComponent<Props> {
         if (value !== transition.interval)
             transition.setInterval(value);
     }
+
+    toggleScaleToFit(): void {
+        const {transition} = this.props;
+        transition.setScaleToFit(!transition.scaleToFit);
+        this.forceUpdate();
+    }
 }
 
 export const Definition = {
-    id: "show",
-    icon: mdiImageMove,
-    label: "Show settings",
+    id: "stage",
+    icon: mdiViewCarousel,
+    label: "Stage",
     path: [Path],
     requireDirectory: true,
     services: ["transition"],
-    selectPreferences: ({preload}: Preferences): PreferenceMappedProps => ({preload}),
     component: Menu,
+    selectPreferences: ({
+        lineupEntries,
+        lineupPosition,
+        preload,
+    }: Preferences): PreferenceMappedProps => ({
+        lineupEntries,
+        lineupPosition,
+        preload,
+    }),
 };

@@ -12,6 +12,7 @@ import {Extras} from "./extras";
 import {Menu} from "./menu";
 import {Modes} from "./modes";
 import {SystemButtons} from "./system-buttons";
+import type {WindowService} from "../window";
 
 // Props mapped from router provided props
 interface RouterProps {
@@ -21,7 +22,7 @@ interface RouterProps {
 
 // Props accepted from the parent component
 interface ExternalProps {
-    api: API;
+    window: WindowService;
 
     workingPath: string | null;
 
@@ -36,7 +37,7 @@ interface ExternalProps {
     menus: ReadonlyArray<GenericMenuDef>;
     modes: ReadonlyArray<GenericModeDef>;
 
-    onOpenDirectory(path: string): void;
+    onOpenDirectory(): void;
     onNavigate(): void;
 }
 
@@ -59,17 +60,15 @@ export class ShellComponent extends React.PureComponent<Props, State> {
             focusLossTime: 1, // Resting state should be unfocused, so timestamp it 1 ms after epoch (heh)
             focusAcquired: false,
         };
-
-        this.handleBacktrack = this.handleBacktrack.bind(this);
-        this.handleKeyDown = this.handleKeyDown.bind(this);
-        this.handleMaybeLostFocus = this.handleMaybeLostFocus.bind(this);
-        this.handleNavigate = this.handleNavigate.bind(this);
-        this.handleOpenDirectory = this.handleOpenDirectory.bind(this);
-        this.handleMenuFocus = this.handleMenuFocus.bind(this);
     }
 
-    public render(): React.ReactNode {
-        const {api, preferences, services} = this.props;
+    componentDidUpdate(nextProps: Props): void {
+        if (nextProps.locationPath !== this.props.locationPath)
+            this.handleMaybeLostFocus();
+    }
+
+    render(): React.ReactNode {
+        const {preferences, services} = this.props;
 
         return <div tabIndex={0}
             onMouseDown={this.handleMaybeLostFocus}
@@ -91,7 +90,7 @@ export class ShellComponent extends React.PureComponent<Props, State> {
             <nav className={this.state.focusAcquired ? "panel focus" : "panel"}
                 onMouseDown={sinkEvent}
             >
-                <SystemButtons api={api} />
+                <SystemButtons window={this.props.window} />
                 <Menu
                     services={services}
                     preferences={preferences}
@@ -99,7 +98,7 @@ export class ShellComponent extends React.PureComponent<Props, State> {
                     localPreferences={this.props.localPreferences}
                     onTogglePreferenceScope={this.props.onTogglePreferenceScope}
                     workingPath={this.props.workingPath}
-                    onOpenDirectory={this.handleOpenDirectory}
+                    onOpenDirectory={this.props.onOpenDirectory}
                     onBacktrack={this.handleBacktrack}
                     locationPath={this.props.locationPath}
                     onNavigate={this.handleNavigate}
@@ -111,47 +110,40 @@ export class ShellComponent extends React.PureComponent<Props, State> {
         </div>;
     }
 
-    handleBacktrack(): void {
+    handleBacktrack = () => {
         this.props.history.goBack();
-    }
+    };
 
-    handleKeyDown(ev: React.KeyboardEvent): void {
+    handleKeyDown = (ev: React.KeyboardEvent) => {
         if (ev.key === "Escape")
             this.handleMaybeLostFocus();
-    }
+    };
 
-    handleMaybeLostFocus(): void {
+    handleMaybeLostFocus = () => {
         this.setState(({focusAcquired}) => focusAcquired
             ? {
                 focusAcquired: false,
                 focusLossTime: new Date().getTime(),
             }
             : null);
-    }
+    };
 
-    handleMenuFocus(): void {
+    handleMenuFocus = () => {
         this.setState({
             focusAcquired: true,
         });
-    }
+    };
 
-    handleNavigate(path: string, state?: unknown): void {
+    handleNavigate = (path: string, state?: unknown) => {
         const {history} = this.props;
         history.push(path, state);
         this.props.onNavigate();
-    }
-
-    async handleOpenDirectory(): Promise<void> {
-        const {api} = this.props;
-        const path = await api.openDirectoryPrompt();
-        this.props.onOpenDirectory(path);
-    }
+    };
 }
 
-function ShellComponentWrapper({
+export const Shell = withRouter(({
     location,
     history,
-    api,
     workingPath,
     preferences,
     onSetPreferences,
@@ -163,29 +155,27 @@ function ShellComponentWrapper({
     modes,
     onOpenDirectory,
     onNavigate,
-}: ExternalProps & RouteComponentProps) {
+    window,
+}: ExternalProps & RouteComponentProps) => React.createElement(ShellComponent, {
     // This may look redundant and one would be tempted to use varidic syntax
     // but please do not, as future versions of router could start injecting
     // variables that will cause superfluous redraws
-    return <ShellComponent
-        // External props
-        api={api}
-        workingPath={workingPath}
-        preferences={preferences}
-        onSetPreferences={onSetPreferences}
-        localPreferences={localPreferences}
-        onTogglePreferenceScope={onTogglePreferenceScope}
-        services={services}
-        extras={extras}
-        menus={menus}
-        modes={modes}
-        onOpenDirectory={onOpenDirectory}
-        onNavigate={onNavigate}
 
-        // Mapped props
-        history={history}
-        locationPath={location.pathname}
-    />;
-}
+    // External props
+    workingPath,
+    preferences,
+    onSetPreferences,
+    localPreferences,
+    onTogglePreferenceScope,
+    services,
+    extras,
+    menus,
+    modes,
+    onOpenDirectory,
+    onNavigate,
+    window,
 
-export const Shell = withRouter(ShellComponentWrapper);
+    // Mapped props
+    history,
+    locationPath: location.pathname,
+}));

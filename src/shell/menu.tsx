@@ -20,7 +20,7 @@ interface Props {
     onTogglePreferenceScope(name: keyof Preferences): void;
 
     workingPath: string | null;
-    onOpenDirectory(): Promise<void>;
+    onOpenDirectory(): void;
     onBacktrack(): void;
 
     locationPath: string;

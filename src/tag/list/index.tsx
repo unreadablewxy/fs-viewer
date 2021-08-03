@@ -1,46 +1,42 @@
 import "./index.sass";
 import * as React from "react";
+import {createSelector} from "reselect";
 import {Icon} from "@mdi/react";
 import {mdiTagPlusOutline} from "@mdi/js";
+import Fuse from "fuse.js";
 
 import {ScrollPane} from "../../scroll-pane";
 
 import {Item} from "./item";
 import {Input} from "./input";
-import {Menu, Item as MenuItem, Divider} from "../../contextual-menu";
+import {Menu, Item as MenuItem} from "../../contextual-menu";
+
+import type {TagID} from "..";
 
 export interface Tag {
     id: number;
     label: string;
 }
 
-interface RankedTag extends Tag {
-    rank: number;
-}
+const searchOptions: Fuse.IFuseOptions<Tag> = {
+    keys: ["label"],
+    shouldSort: true,
+    threshold: 0.5,
+    distance: 20,
+};
 
-function compareRankedTags(a: RankedTag, b: RankedTag): number {
-    return a.rank - b.rank || a.label.localeCompare(b.label);
-}
+const getFilter = createSelector(
+    (tags: ReadonlyArray<Tag>) => tags,
+    (tags: ReadonlyArray<Tag>) => new Fuse(tags, searchOptions)
+);
 
-function filterTags(
-    tags: ReadonlyArray<Tag>,
-    searchTerm: string,
-): ReadonlyArray<Tag> {
-    if (searchTerm) {
-        const result = new Array<RankedTag>();
-        const term = searchTerm.toLowerCase();
-        for (const tag of tags) {
-            const position = tag.label.indexOf(term);
-            if (position >= 0) {
-                result.push({...tag, rank: position});
-            }
-        }
-
-        return result.sort(compareRankedTags);
-    }
-
-    return tags;
-}
+const filterTags = createSelector(
+    (tags: ReadonlyArray<Tag>, searchTerm: string) => tags,
+    (tags: ReadonlyArray<Tag>, searchTerm: string) => searchTerm.trim(),
+    (tags: ReadonlyArray<Tag>, searchTerm: string): ReadonlyArray<Tag> => searchTerm
+        ? getFilter(tags).search(searchTerm).map(r => r.item)
+        : tags
+);
 
 interface Props {
     tags: Readonly<Tag[]>;
@@ -51,7 +47,6 @@ interface Props {
     onCreateTag: (tag: string) => void;
     onRenameTag: (tag: TagID, newName: string) => void;
     onDeleteTag: (tag: TagID) => void;
-    onClearTagCache: (tag: TagID) => void;
 }
 
 interface State {
@@ -84,7 +79,6 @@ export class TagList extends React.PureComponent<Props, State> {
             menu: null,
         };
 
-        this.handleClearTagCache = this.handleClearTagCache.bind(this);
         this.handleClickTag = this.handleClickTag.bind(this);
         this.handleContextMenu = this.handleContextMenu.bind(this);
         this.handleDelete = this.handleDelete.bind(this);
@@ -169,8 +163,6 @@ export class TagList extends React.PureComponent<Props, State> {
                 {menu && <Menu position={menu}>
                     <MenuItem onClick={this.handleRenameBegin}>Rename</MenuItem>
                     <MenuItem onClick={this.handleDelete}>Delete</MenuItem>
-                    <Divider />
-                    <MenuItem onClick={this.handleClearTagCache}>Clear Tag Cache</MenuItem>
                 </Menu>}
             </li>
         </>;
@@ -189,21 +181,16 @@ export class TagList extends React.PureComponent<Props, State> {
         return tags[offsetToIndex(this.state.selectedIndex, tags.length)];
     }
 
-    handleClearTagCache(): void {
-        const tag = this.getSelectedTag();
-        if (tag) this.props.onClearTagCache(tag.id);
-
-        this.setState({menu: null});
-    }
-
     handleClickTag(id: number): void {
         this.props.onToggleTag(id);
     }
 
     handleContextMenu(selectedIndex: number, {clientX: x, clientY: y}: React.MouseEvent): void {
-        const s = this.state;
-        const menu = s.menu && s.selectedIndex === selectedIndex ? null : {x, y};
-        this.setState({menu, selectedIndex});
+        if (selectedIndex > 0) {
+            const s = this.state;
+            const menu = s.menu && s.selectedIndex === selectedIndex ? null : {x, y};
+            this.setState({menu, selectedIndex});
+        }
     }
 
     handleInputChange(inputText: string): void {
@@ -248,7 +235,7 @@ export class TagList extends React.PureComponent<Props, State> {
 
     handleRenameBegin(): void {
         const tag = this.getSelectedTag();
-        if (tag) {
+        if (tag && tag.id > 0) {
             this.setState({
                 renaming: tag.label,
                 menu: null,

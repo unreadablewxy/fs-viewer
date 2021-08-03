@@ -1,3 +1,4 @@
+@use 'sass:math'
 @import './global.sass'
 @import './menu.sass'
 
@@ -6,7 +7,7 @@
     position: fixed
     min-width: 15em
     max-width: 30em
-    border-radius: 0 0 $space-narrow/2 $space-narrow/2
+    border-radius: 0 0 math.div($space-narrow, 2) math.div($space-narrow, 2)
     transition: box-shadow $time-resize-animation * 2, background-color $time-resize-animation
     box-shadow: 0 0 $space-default $color-panel-shadow
     background-color: $color-panel-opaque

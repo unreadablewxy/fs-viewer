@@ -9,6 +9,8 @@ import {Lineup} from "./lineup";
 import {TransitionService} from "./transition-service";
 
 interface PreferenceMappedProps {
+    lineupEntries: number;
+    lineupPosition: PanelPosition;
     preload: number;
     thumbnailPath?: string;
     thumbnailSizing: ThumbnailSizing;
@@ -23,7 +25,6 @@ interface Props extends PreferenceMappedProps {
 }
 
 interface State {
-    dragging?: boolean;
     fileType?: string;
 }
 
@@ -49,10 +50,10 @@ export class Stage extends React.PureComponent<Props, State> {
 
         this.container = React.createRef<HTMLElement>();
 
-        this.handleDisableButtons = this.handleDisableButtons.bind(this);
         this.handleFocusedFileChanged = this.handleFocusedFileChanged.bind(this);
         this.handleImageError = this.handleImageError.bind(this);
         this.handleKeyDownShell = this.handleKeyDownShell.bind(this);
+        this.handleScalingChange = this.handleScalingChange.bind(this);
         this.handleTransition = this.handleTransition.bind(this);
         this.navigateNext = this.navigateNext.bind(this);
         this.navigatePrev = this.navigatePrev.bind(this);
@@ -61,6 +62,7 @@ export class Stage extends React.PureComponent<Props, State> {
     componentDidMount(): void {
         this.props.browsing.on("filefocus", this.handleFocusedFileChanged);
         this.props.transition.on("transition", this.handleTransition);
+        this.props.transition.on("scalingchange", this.handleScalingChange);
 
         (this.container.current as HTMLElement).focus();
     }
@@ -68,13 +70,14 @@ export class Stage extends React.PureComponent<Props, State> {
     componentWillUnmount(): void {
         this.props.browsing.off("filefocus", this.handleFocusedFileChanged);
         this.props.transition.off("transition", this.handleTransition);
+        this.props.transition.off("scalingchange", this.handleScalingChange);
     }
 
     render(): React.ReactNode {
         const {files, focusedFile} = this.props.browsing;
         const fileIndex = focusedFile || 0;
 
-        const {dragging, fileType} = this.state;
+        const {fileType} = this.state;
         const fileName = files.names[fileIndex];
 
         const suffixIndex = fileName.lastIndexOf('.');
@@ -86,32 +89,41 @@ export class Stage extends React.PureComponent<Props, State> {
         }
 
         const fileUrl = `file://${files.path}/${fileName}`;
-        const showActualSize = false; // TODO: load ths from somewhere
-        const cssClass = showActualSize ? "stage" : "stage fit";
+        let cssClass = this.props.transition.scaleToFit ? "stage fit" : "stage";
+
+        const {lineupPosition} = this.props;
+        if (lineupPosition === "bottom")
+            cssClass += " lineup-docked";
+
+        const lineup = <Lineup
+            key="lineup"
+            lineupEntries={this.props.lineupEntries}
+            lineupPosition={this.props.lineupPosition}
+            browsing={this.props.browsing}
+            thumbnailSizing={this.props.thumbnailSizing}
+            thumbnailResolution={this.props.thumbnailResolution}
+            thumbnailPath={this.props.thumbnailPath}
+        />;
 
         return <section className={cssClass}
             tabIndex={1}
             ref={this.container}
             onKeyDown={this.handleKeyDownShell}
         >
-            <Center key={fileName} onDrag={this.handleDisableButtons}>
+            {(lineupPosition === "left" || lineupPosition === "right") && lineup}
+            <Center key={fileName}
+                atStart={fileIndex <= 0}
+                atEnd={fileIndex >= files.names.length - 1}
+                onNavigateNext={this.navigateNext}
+                onNavigatePrev={this.navigatePrev}
+            >
                 {isVideo
                     ? <video src={fileUrl} controls />
                     : <img src={fileUrl}
                         alt={fileName}
                         onError={this.handleImageError} />}
             </Center>
-            <Lineup browsing={this.props.browsing}
-                thumbnailSizing={this.props.thumbnailSizing}
-                thumbnailResolution={this.props.thumbnailResolution}
-                thumbnailPath={this.props.thumbnailPath}
-            />
-            <button disabled={dragging || fileIndex <= 0}
-                onClick={this.navigatePrev}
-            />
-            <button disabled={dragging || fileIndex >= files.names.length - 1}
-                onClick={this.navigateNext}
-            />
+            {lineupPosition === "bottom" && lineup}
         </section>;
     }
 
@@ -130,10 +142,6 @@ export class Stage extends React.PureComponent<Props, State> {
         }
 
         return false;
-    }
-
-    handleDisableButtons(dragging: boolean): void {
-        this.setState({dragging});
     }
 
     handleImageError(): void {
@@ -176,6 +184,10 @@ export class Stage extends React.PureComponent<Props, State> {
         }
     }
 
+    handleScalingChange(): void {
+        this.forceUpdate();
+    }
+
     private handleFocusedFileChanged(fileIndex: number | null): void {
         if (this.probeRequestController) {
             this.probeRequestController.abort();
@@ -213,11 +225,15 @@ export const Definition = {
     services: ["browsing", "transition"],
     component: Stage,
     selectPreferences: ({
+        lineupEntries,
+        lineupPosition,
         preload,
         thumbnailPath,
         thumbnailSizing,
         thumbnailResolution,
     }: Preferences): PreferenceMappedProps => ({
+        lineupEntries,
+        lineupPosition,
         preload,
         thumbnailPath,
         thumbnailSizing,
