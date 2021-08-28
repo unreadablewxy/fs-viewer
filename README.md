@@ -6,13 +6,16 @@
 Created to solve one person's image organization woes, this program is for those who wants a tagging image browser like those of booru sites. But isn't a big fan of brittle database files other viewers like to keep.
 
 What is unique about this program?
-* Tag data is attached to your files via `xattrs` or `alternate streams` so moving or editing files around won't affect your tags
-* Have a windows tablet or Linux storage server? Tag data auto follows your files even over SMB and NFS file shares
+* Tag data is kept separate, but securely attached, to your files. Guaranteed by your Operating System
+    * Moving or editing your files won't affect your tags
+    * Changing your tags won't affect your file contents or checksum
+    * See [xattrs](https://man7.org/linux/man-pages/man7/xattr.7.html) or [alternate streams](https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-fscc/c54dec26-1551-4d3a-a0ea-4fa40f848eb3) for those interested
+* Have a Windows tablet or Linux storage server? Tag data auto follows your files even over SMB and NFS file shares
 * Designed to work with giant `mono-collections` that contains thousands of files without noticable performance issues
 * Supports all popular animated image & short video clip formats (built on electron, so everything Chrome supports, "just works")
 * Integrated with your OS' native thumbnailer for maximum compatibility out of the box
     * Can also hook up a custom thumbnailer and load thumbnails from wherever you like, even animated ones
-* Extensibility! Built in [extensions support](./wiki/Extension-Development)
+* Extensibility! Built in [extensions support](https://github.com/unreadablewxy/fs-viewer/wiki/Extension-Development)
 
 <p align="center">
 
