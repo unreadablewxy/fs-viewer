@@ -64,7 +64,7 @@ export class SystemButtons extends React.PureComponent<Props, State> {
 
     render(): React.ReactNode {
         const {window} = this.props;
-        return !this.state.hidden && <div className="background system">
+        return !this.state.hidden && <div className="panel system">
             <ul className="actions">
                 <li onClick={window.minimize}>
                     <Icon path={mdiWindowMinimize} />

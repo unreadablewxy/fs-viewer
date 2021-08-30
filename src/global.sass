@@ -34,10 +34,16 @@ $space-contextual-input-sides: $space-narrow
 $space-application-header: 2.2em
 
 $size-font-small: 0.8em
+$size-font-form-label: $size-font-small
 
 $time-color-change: 0.1s
 $time-button-background: $time-color-change
 $time-resize-animation: 0.2s
+
+@mixin form-label-text
+    font-size: $size-font-form-label
+    margin-bottom: $space-narrow
+    text-transform: uppercase
 
 @mixin list-no-defaults
     display: block

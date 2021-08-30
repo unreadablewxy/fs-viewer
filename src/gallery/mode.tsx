@@ -1,23 +1,25 @@
 import "./gallery.sass";
 import * as React from "react";
 
-import {BrowsingService} from "../browsing";
 import {ScrollPane} from "../scroll-pane";
 import {Thumbnail} from "../thumbnail";
 
 import {Path} from "./constants";
 
+import type {browsing, preference} from "..";
+
 interface PreferenceMappedProps {
     columns: number;
     overscan: number;
 
+    thumbnailLabel: preference.ThumbnailLabel;
     thumbnailPath?: string;
-    thumbnailSizing: ThumbnailSizing;
-    thumbnailResolution?: ThumbnailResolution;
+    thumbnailSizing: preference.ThumbnailSizing;
+    thumbnailResolution?: preference.ThumbnailResolution;
 }
 
 interface Props extends PreferenceMappedProps {
-    browsing: BrowsingService;
+    browsing: browsing.Service;
 
     onNavigate: (id: string) => void;
 }
@@ -258,6 +260,7 @@ export class Gallery extends React.PureComponent<Props, State> {
         const {
             columns,
             overscan,
+            thumbnailLabel,
             thumbnailPath,
             thumbnailResolution,
             thumbnailSizing,
@@ -301,7 +304,12 @@ export class Gallery extends React.PureComponent<Props, State> {
             height: `calc((${rowHeightExpression})*${Math.ceil((objectsCount - lastDrawn) / columns)})`,
         };
 
-        return <section className={`gallery scale-${thumbnailSizing}`}
+        let className = `gallery scale-${thumbnailSizing}`;
+        if (thumbnailLabel !== "full") {
+            className += ` ${thumbnailLabel}-thumbnail-label`;
+        }
+
+        return <section className={className}
             tabIndex={1}
             ref={this.container}
             onKeyDown={this.handleKeyDown}
@@ -339,9 +347,16 @@ export class Gallery extends React.PureComponent<Props, State> {
 
     handleClickThumbnail(
         index: number,
+        select: boolean,
         {ctrlKey, shiftKey, altKey}: React.MouseEvent,
     ): void {
-        if (ctrlKey || shiftKey) {
+        if (select) {
+            const {browsing} = this.props;
+            if (browsing.selected.has(index))
+                browsing.removeSelection(index, index + 1);
+            else
+                browsing.addSelection(index, index + 1);
+        } else if (ctrlKey || shiftKey) {
             this.setState(state => {
                 const {browsing} = this.props;
 
@@ -407,12 +422,14 @@ export const Definition = {
     component: Gallery,
     selectPreferences: ({
         columns,
+        thumbnailLabel,
         thumbnailPath,
         thumbnailSizing,
         thumbnailResolution,
-    }: Preferences): PreferenceMappedProps => ({
+    }: preference.Set): PreferenceMappedProps => ({
         overscan: 2,
         columns,
+        thumbnailLabel,
         thumbnailPath,
         thumbnailSizing,
         thumbnailResolution,

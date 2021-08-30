@@ -5,8 +5,9 @@ import {Path as GalleryPath} from "../gallery";
 import {Path as StagePath} from "../stage";
 import {ScopeToggle} from "../scope-toggle";
 
-import type {BrowsingService} from "../browsing";
 import {FilesOrder} from "./comparer";
+
+import type {browsing, preference} from "..";
 
 interface PreferenceMappedProps {
     order: number;
@@ -14,12 +15,12 @@ interface PreferenceMappedProps {
 }
 
 interface Props extends PreferenceMappedProps {
-    browsing: BrowsingService;
+    browsing: browsing.Service;
 
-    onSetPreferences(values: Partial<Preferences>): void;
+    onSetPreferences(values: Partial<preference.Set>): void;
 
-    localPreferences: PreferenceNameSet;
-    onTogglePreferenceScope(name: keyof Preferences): void;
+    localPreferences: preference.NameSet;
+    onTogglePreferenceScope(name: preference.Name): void;
 }
 
 export class Ordering extends React.PureComponent<Props> {
@@ -47,6 +48,7 @@ export class Ordering extends React.PureComponent<Props> {
                     <select value={unsignedOrder} onChange={this.handleSetOrder}>
                         <option value={FilesOrder.System}>Use system order</option>
                         <option value={FilesOrder.Lexical}>Compare names</option>
+                        <option value={FilesOrder.LengthLexical}>Compare name length then text</option>
                         <option value={FilesOrder.Numeric}>Compare numeric names</option>
                         <option value={FilesOrder.Tokenize}>Split names</option>
                         <option value={FilesOrder.Dimensional}>Split numeric names</option>
@@ -100,7 +102,7 @@ export const Definition = {
     selectPreferences: ({
         order,
         orderParam,
-    }: Preferences): PreferenceMappedProps => ({
+    }: preference.Set): PreferenceMappedProps => ({
         order,
         orderParam,
     }),

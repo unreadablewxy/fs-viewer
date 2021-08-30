@@ -12,7 +12,8 @@ export type {Status as WindowStatus} from "./window";
 const fs = new CachedFileSystem();
 
 const configRoot = joinPath(runtime.getPath("appData"), "fs-viewer");
-const loadWinStateTask = fs.loadObject(configRoot, "window-state.json");
+const windowStatePath = joinPath(configRoot, "window-state.json");
+const loadWinStateTask = fs.loadObject(windowStatePath);
 let mainWindow: ClientWindow;
 
 // Handlers have divergent arguments so any other type will be just as useless
@@ -67,5 +68,5 @@ runtime.on("window-all-closed", async function onAllWindowsClosed(): Promise<voi
 // Some APIs can only be used after this event occurs.
 runtime.on("ready", async function onReady(): Promise<void> {
     await registerThumbnailProtocol();
-    mainWindow = new ClientWindow(s => fs.patchObject(configRoot, "window-state.json", s));
+    mainWindow = new ClientWindow(s => fs.patchObject(windowStatePath, s));
 });

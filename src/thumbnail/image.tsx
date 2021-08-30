@@ -1,12 +1,14 @@
 import * as React from "react";
 
+import type {browsing, preference} from "..";
+
 const fieldPattern = /\{(\w*)\}/g;
 
 interface Props {
-    files: FilesView,
+    files: browsing.FilesView,
     index: number,
     pathFormat?: string,
-    thumbnailResolution?: ThumbnailResolution;
+    thumbnailResolution?: preference.ThumbnailResolution;
 }
 
 // This component exists so that we don't need to evaluate regex every time
@@ -21,10 +23,12 @@ function renderImage({files, index, pathFormat, thumbnailResolution}: Props) {
             case "":
             case "0":
             case "fileName":
+            case "file-name":
                 return fileName;
 
             case "1":
-            case "fileStem": {
+            case "fileStem":
+            case "file-stem": {
                 const extensionStart = fileName.lastIndexOf('.');
                 return extensionStart === -1 ? fileName : fileName.slice(0, extensionStart);
             }

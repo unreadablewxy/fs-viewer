@@ -37,3 +37,21 @@
             width: 100%
             height: 100%
             background-color: opacify($color-clickable-hover, 0.1)
+
+// This might actually be enough going forwards, but who knows what happens on mobile?
+::-webkit-scrollbar
+    width: 1em
+
+::-webkit-scrollbar-track
+    background-color: transparent
+    transition: box-shadow $time-resize-animation * 2, background-color $time-resize-animation
+
+    &:hover
+        background-color: $color-panel-focus
+        box-shadow: 0 0 $space-default $color-panel-shadow
+
+::-webkit-scrollbar-thumb
+    background-color: opacify($color-clickable-hover, 0.1)
+
+::-webkit-scrollbar-thumb:hover
+    background-color: opacify($color-clickable-hover, 0.2)

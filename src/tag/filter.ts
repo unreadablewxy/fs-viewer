@@ -1,17 +1,14 @@
-import {TaggingService} from "./service";
-
-import type {NamespaceID, TagID} from ".";
-import type {Filter, FilterConfig, FilterProvider} from "../browsing";
+import type {browsing, tag} from "..";
 
 export const UntaggedID = -1;
 
-export interface TagFilterConfig extends FilterConfig {
+export interface TagFilterConfig extends browsing.FilterConfig {
     type: "builtin.filter.tag";
-    tag: TagID;
-    namespace: NamespaceID;
+    tag: tag.ID;
+    namespace: tag.NamespaceID;
 }
 
-export class TagFilter implements Filter {
+export class TagFilter implements browsing.Filter {
     static TypeID = "builtin.filter.tag";
 
     public readonly id: number | undefined;
@@ -20,8 +17,8 @@ export class TagFilter implements Filter {
         // Do nothing
     }
 
-    public filter({path, names}: FilesView): FilesView {
-        const result: FilesView = {
+    public filter({path, names}: browsing.FilesView): browsing.FilesView {
+        const result: browsing.FilesView = {
             path,
             names: [],
         };
@@ -37,12 +34,12 @@ export class TagFilter implements Filter {
     }
 }
 
-export class TagFilterProvider implements FilterProvider {
-    constructor(private readonly tags: TaggingService) {
+export class TagFilterProvider implements browsing.FilterProvider {
+    constructor(private readonly tags: tag.Service) {
         // Do nothing
     }
 
-    public async create(config: TagFilterConfig): Promise<Filter> {
+    public async create(config: TagFilterConfig): Promise<browsing.Filter> {
         const files = config.tag === UntaggedID
             ? await this.tags.getUntaggedFiles()
             : await this.tags.getFiles(config.tag)
@@ -51,6 +48,6 @@ export class TagFilterProvider implements FilterProvider {
     }
 }
 
-export function isTagFilter(filter: FilterConfig): filter is TagFilterConfig {
+export function isTagFilter(filter: browsing.FilterConfig): filter is TagFilterConfig {
     return filter.type === TagFilter.TypeID;
 }

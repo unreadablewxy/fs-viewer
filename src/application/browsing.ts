@@ -1,71 +1,13 @@
 import {EventEmitter} from "events";
 
-import {Debounce} from "./debounce";
-import {method} from "./interface";
-import {Config, Stage, Provider, Pipeline} from "./pipeline";
+import {Debounce} from "../debounce";
+import {method} from "../interface";
+import {Pipeline} from "../pipeline";
 
-/**
- * A stateful visitor is one that keeps state between invocations of its visit
- * function. These type allows one to keep data within or between invocations.
- */
-interface StatefulVisitor extends Stage {
-    begin?(): void;
-    end?(): void;
-}
+import type {browsing} from "..";
 
-export interface Filter extends StatefulVisitor {
-    filter(files: FilesView): FilesView;
-}
-
-export interface Comparer extends StatefulVisitor {
-    compare(workingDirectory: string, first: string, second: string): number;
-}
-
-export type FilterConfig = Config;
-
-export type ComparerConfig = Config;
-
-export type FilterProvider = Provider<FilterConfig, Filter>;
-
-export type ComparerProvider = Provider<ComparerConfig, Comparer>;
-
-interface Properties {
-    readonly files: FilesView;
-    readonly selected: Set<number>;
-    readonly filters: ReadonlyArray<FilterConfig>;
-    readonly comparers: ReadonlyArray<ComparerConfig>;
-    readonly focusedFile: number | null;
-}
-
-/**
- * Serving as the source of truth of what content is shown in what order, the
- * browsing service allows other components to tell it what are the filtering
- * and sorting parameters
- */
-export interface BrowsingService extends Properties, EventEmitter {
-    addFilter(filter: FilterConfig): Promise<number>;
-    removeFilter(id: number): void;
-    registerFilterProvider(type: string, provider: FilterProvider): void;
-
-    addComparer(comparer: ComparerConfig): Promise<number>;
-    removeComparer(id: number): void;
-    registerComparerProvider(type: string, provider: ComparerProvider): void;
-
-    addSelection(start: number, end: number): void;
-    clearSelection(): void;
-    removeSelection(start: number, end: number): void;
-
-    setFocus(index: number | null): void;
-
-    getSelectedNames(): string[] | null;
-
-    on(event: "fileschange", cb: () => void): this;
-    on(event: "selectchange", cb: () => void): this;
-    on(event: "filefocus", cb: (index: number | null) => void): this;
-}
-
-class FilterPipeline extends Pipeline<FilterConfig, Filter> {
-    public apply(files: FilesView): FilesView {
+class FilterPipeline extends Pipeline<browsing.FilterConfig, browsing.Filter> {
+    public apply(files: browsing.FilesView): browsing.FilesView {
         for (let n = 0; n < this.stages.length; ++n) {
             const filter = this.stages[n];
             filter.begin && filter.begin();
@@ -81,8 +23,8 @@ class FilterPipeline extends Pipeline<FilterConfig, Filter> {
     }
 }
 
-class ComparerPipeline extends Pipeline<ComparerConfig, Comparer> {
-    public apply({path, names: fileNames}: FilesView): FilesView {
+class ComparerPipeline extends Pipeline<browsing.ComparerConfig, browsing.Comparer> {
+    public apply({path, names: fileNames}: browsing.FilesView): browsing.FilesView {
         for (let n = this.stages.length; n --> 0;) {
             const stage = this.stages[n];
             stage.begin && stage.begin();   
@@ -109,21 +51,21 @@ class ComparerPipeline extends Pipeline<ComparerConfig, Comparer> {
     }
 }
 
-const NoFiles: FilesView = Object.seal({
+const NoFiles: browsing.FilesView = Object.seal({
     path: "",
     names: [],
 });
 
-export function create(): [BrowsingService, (files: FilesView) => void] {
+export function create(): [browsing.Service, (files: browsing.FilesView) => void] {
     let files = NoFiles;
 
     const filters = new FilterPipeline();
     let filtersChanged = false;
-    let filteredFiles: FilesView = NoFiles;
+    let filteredFiles: browsing.FilesView = NoFiles;
 
     const comparers = new ComparerPipeline();
     let comparersChanged = false;
-    let comparedFiles: FilesView = NoFiles;
+    let comparedFiles: browsing.FilesView = NoFiles;
 
     let selected = new Set<number>();
 
@@ -152,7 +94,7 @@ export function create(): [BrowsingService, (files: FilesView) => void] {
         service.emit("fileschange");
     });
 
-    function setFiles(f: FilesView): void {
+    function setFiles(f: browsing.FilesView): void {
         files = f;
         filtersChanged = comparersChanged = true;
         filters.clear();
@@ -192,9 +134,9 @@ export function create(): [BrowsingService, (files: FilesView) => void] {
         removeSelection: { ...method, value: removeSelection },
         setFocus: { ...method, value: setFocus },
         getSelectedNames: { ...method, value: getSelectedNames },
-    }) as BrowsingService;
+    }) as browsing.Service;
 
-    async function addFilter(config: FilterConfig): Promise<number> {
+    async function addFilter(config: browsing.FilterConfig): Promise<number> {
         const id = await filters.add(config);
         filtersChanged = true;
         updateFilesList.schedule();
@@ -207,11 +149,11 @@ export function create(): [BrowsingService, (files: FilesView) => void] {
         updateFilesList.schedule();
     }
 
-    function registerFilterProvider(type: string, provider: FilterProvider): void {
+    function registerFilterProvider(type: string, provider: browsing.FilterProvider): void {
         filters.register(type, provider);
     }
 
-    async function addComparer(config: ComparerConfig): Promise<number> {
+    async function addComparer(config: browsing.ComparerConfig): Promise<number> {
         const id = await comparers.add(config);
         comparersChanged = true;
         updateFilesList.schedule();
@@ -224,7 +166,7 @@ export function create(): [BrowsingService, (files: FilesView) => void] {
         updateFilesList.schedule();
     }
 
-    function registerComparerProvider(type: string, provider: ComparerProvider): void {
+    function registerComparerProvider(type: string, provider: browsing.ComparerProvider): void {
         comparers.register(type, provider);
     }
 

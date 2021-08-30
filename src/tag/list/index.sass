@@ -4,9 +4,12 @@ $size-icon: 1em
 $size-icon-spacing: $space-narrow
 $size-icon-offset: 1em + $size-icon-spacing
 
-.tag-picker
+nav .menu > li.tag-picker
     padding-top: 0
-    max-height: 80vh
+
+.tag-picker
+    flex: 1 1 auto
+    min-height: 0
 
     &.disabled li
         pointer-events: none

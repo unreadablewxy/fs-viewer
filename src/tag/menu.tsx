@@ -3,7 +3,6 @@ import {createSelector} from "reselect";
 import {BuiltinNamespace} from "inconel";
 import {mdiAlertCircle, mdiTag, mdiTagMultiple} from "@mdi/js";
 
-import {BrowsingService, FilterConfig, Filter as FilterStage} from "../browsing";
 import {MenuSpecificProps} from "../extension";
 import {Path as GalleryPath} from "../gallery";
 import {Notice, Level} from "../notice";
@@ -11,14 +10,13 @@ import {Path as StagePath} from "../stage";
 
 import {TagFilter, TagFilterConfig, isTagFilter, UntaggedID} from "./filter";
 import {TagList, Tag} from "./list";
-import {TaggingService} from "./service";
 import {ProgressService} from "../progress";
 
-import type {TagID, Tags} from ".";
+import type {browsing, tag} from "..";
 
 const mapFiltersToSelectedTagsMemoized = createSelector(
-    (filters: ReadonlyArray<FilterConfig>) => filters,
-    (filters: ReadonlyArray<FilterConfig>): Set<number> => {
+    (filters: ReadonlyArray<browsing.FilterConfig>) => filters,
+    (filters: ReadonlyArray<browsing.FilterConfig>): Set<number> => {
         const result = new Set<number>();
         for (let n = filters.length; n --> 0;) {
             const filter = filters[n];
@@ -33,38 +31,14 @@ function compareTags(a: Tag, b: Tag): number {
     return a.label.localeCompare(b.label);
 }
 
-const convertTagMapToListMemoized = createSelector( /* eslint-disable @typescript-eslint/no-unused-vars */
-    (state: State, names: ReadonlyMap<number, string>, editing: boolean) => names,
-    (state: State, names: ReadonlyMap<number, string>, editing: boolean) => editing,
-    (state: State, names: ReadonlyMap<number, string>, editing: boolean) => state.initialSelectedTags,
-    (
-        lookup: ReadonlyMap<number, string>,
-        editing: boolean,
-        chosen: Set<number>,
-    ): Tag[] => {
-        const selected = new Array<Tag>();
-        const unselected = new Array<Tag>();
-        for (const [id, label] of lookup)
-            (chosen.has(id) ? selected : unselected).push({id, label});
-        
-        selected.sort(compareTags);
-        unselected.sort(compareTags);
-    
-        if (!editing)
-            selected.unshift({id: UntaggedID, label: "(Untagged)"});
-    
-        return selected.concat(unselected);
-    });
-
 interface Props extends MenuSpecificProps {
-    browsing: BrowsingService;
-    tagging: TaggingService;
+    browsing: browsing.Service;
+    tagging: tag.Service;
     progress: ProgressService;
 }
 
 interface State {
-    selectedTags: Tags;
-    initialSelectedTags: Set<number>;
+    selectedTags: tag.Tags;
     loaded: string | null;
 }
 
@@ -73,22 +47,23 @@ const noTagsList: Tag[] = [];
 const noSelection = new Set<number>();
 
 export class Filter extends React.PureComponent<Props, State> {
+    private tags: Tag[] | null = null;
+
     constructor(props: Props) {
         super(props);
 
         this.state = {
             selectedTags: noTags,
-            initialSelectedTags: new Set<number>(),
             loaded: null,
         };
 
         this.handleToggleTag = this.handleToggleTag.bind(this);
         this.handleCreateTag = this.handleCreateTag.bind(this);
-        this.resortTags = this.resortTags.bind(this);
         this.handleFileFocus = this.handleFileFocus.bind(this);
         this.handleFileTagChange = this.handleFileTagChange.bind(this);
+        this.handleFilterCleared = this.handleFilterCleared.bind(this);
         this.handleNamespaceChange = this.handleNamespaceChange.bind(this);
-        this.handleFilesChange = this.handleFilesChange.bind(this);
+        this.handleDirectoryChange = this.handleDirectoryChange.bind(this);
     }
 
     /**
@@ -105,7 +80,7 @@ export class Filter extends React.PureComponent<Props, State> {
 
     componentDidMount(): void {
         this.props.browsing.on("filefocus", this.handleFileFocus);
-        this.props.browsing.on("fileschange", this.handleFilesChange);
+        this.props.browsing.on("fileschange", this.handleDirectoryChange);
         this.props.tagging.on("filechange", this.handleFileTagChange);
         this.props.tagging.on("change", this.handleNamespaceChange);
 
@@ -114,20 +89,19 @@ export class Filter extends React.PureComponent<Props, State> {
 
     componentWillUnmount(): void {
         this.props.browsing.off("filefocus", this.handleFileFocus);
-        this.props.browsing.off("fileschange", this.handleFilesChange);
+        this.props.browsing.off("fileschange", this.handleDirectoryChange);
         this.props.tagging.off("filechange", this.handleFileTagChange);
         this.props.tagging.off("change", this.handleNamespaceChange);
     }
 
     render(): React.ReactNode {
         let loading: boolean | undefined;
-        let tags: Tag[];
+        let tags: ReadonlyArray<Tag>;
         let selected: Set<number>;
         let fault: string | undefined;
 
         const browsingService = this.props.browsing;
         const selectedFiles = browsingService.selected.size;
-        const editingTags = this.props.path === StagePath || browsingService.selected.size > 0;
 
         const file = this.getSelectedFile();
         if (file) {
@@ -136,7 +110,7 @@ export class Filter extends React.PureComponent<Props, State> {
                 tags = noTagsList;
                 selected = noSelection;
             } else if (this.props.tagging.namespace === this.state.selectedTags.namespace) {
-                tags = convertTagMapToListMemoized(this.state, this.props.tagging.names, editingTags);
+                tags = this.getTags();
                 selected = this.state.selectedTags.ids;
             } else {
                 fault = "Can't change this file.\nIt appears to be from a\n" +
@@ -147,9 +121,8 @@ export class Filter extends React.PureComponent<Props, State> {
 
                 selected = this.state.selectedTags.ids;
             }
-        } else { 
-            tags = convertTagMapToListMemoized(this.state, this.props.tagging.names, editingTags);
-
+        } else {
+            tags = this.getTags();
             if (selectedFiles) {
                 selected = this.state.selectedTags.ids;
             } else {
@@ -178,7 +151,7 @@ export class Filter extends React.PureComponent<Props, State> {
                 tags={tags}
                 disabled={!!fault}
                 selected={selected}
-                onFilterChange={this.resortTags}
+                onFilterCleared={this.handleFilterCleared}
                 onToggleTag={this.handleToggleTag}
                 onCreateTag={this.handleCreateTag}
                 onRenameTag={this.props.tagging.renameTag}
@@ -187,9 +160,33 @@ export class Filter extends React.PureComponent<Props, State> {
         </ul>;
     }
 
+    private getTags(): ReadonlyArray<Tag> {
+        if (!this.tags) {
+            const selected = new Array<Tag>();
+            const unselected = new Array<Tag>();
+
+            const selectedIds = this.getSelectedFile()
+                ? this.state.selectedTags.ids
+                : mapFiltersToSelectedTagsMemoized(this.props.browsing.filters);
+
+            for (const [id, label] of this.props.tagging.names)
+                (selectedIds.has(id) ? selected : unselected).push({id, label});
+
+            selected.sort(compareTags);
+            unselected.sort(compareTags);
+
+            if (this.props.path !== StagePath)
+                selected.unshift({id: UntaggedID, label: "(Untagged)"});
+
+            this.tags = selected.concat(unselected);
+        }
+
+        return this.tags;
+    }
+
     // TODO: Batch tagging shouldn't use the toggling approach, remove this when
     // the UI change is implemented
-    private onBatchTaggingComplete(tag: TagID, clearing: boolean) {
+    private onBatchTaggingComplete(tag: tag.ID, clearing: boolean): void {
         this.setState(({selectedTags, loaded}) => {
             if (loaded != null)
                 return null;
@@ -212,8 +209,12 @@ export class Filter extends React.PureComponent<Props, State> {
     async handleCreateTag(name: string): Promise<void> {
         const tagID = await this.props.tagging.createTag(name);
         const file = this.getSelectedFile();
-        if (file)
-            return this.props.tagging.assignTag(tagID, [file]);
+        if (file) {
+            await this.props.tagging.assignTag(tagID, [file]);
+            this.tags = null;
+            this.forceUpdate();
+            return;
+        }
 
         const selected = this.props.browsing.getSelectedNames();
         if (selected) {
@@ -222,7 +223,7 @@ export class Filter extends React.PureComponent<Props, State> {
         }
     }
 
-    async handleToggleTag(tag: TagID): Promise<void> {
+    async handleToggleTag(tag: tag.ID): Promise<void> {
         const file = this.getSelectedFile();
         if (file)
             return this.props.tagging.toggleFileTag(tag, file);
@@ -243,7 +244,7 @@ export class Filter extends React.PureComponent<Props, State> {
         for (let n = filters.length; n --> 0;) {
             const filter = filters[n];
             if (isTagFilter(filter) && filter.tag === tag) {
-                this.props.browsing.removeFilter((filter as unknown as FilterStage).id as number);
+                this.props.browsing.removeFilter((filter as unknown as browsing.Filter).id as number);
                 return;
             }
         }
@@ -258,50 +259,43 @@ export class Filter extends React.PureComponent<Props, State> {
     }
 
     private handleFileFocus(index: number | null): void {
-        if (index === null || this.props.path === GalleryPath) {
-            this.setState({
-                loaded: null,
-                initialSelectedTags: mapFiltersToSelectedTagsMemoized(this.props.browsing.filters),
-            });   
-        } else {
-            this.setState({
-                loaded: null,
-                initialSelectedTags: new Set<number>(),
-            });
-
+        if (index !== null && this.props.path !== GalleryPath) {
             const file = this.props.browsing.files.names[index];
             this.props.tagging.getTags(file).then(selectedTags => {
-                if (this.getSelectedFile() === file)
+                if (this.getSelectedFile() === file) {
+                    this.tags = null;
                     this.setState({
                         loaded: file,
                         selectedTags,
-                        initialSelectedTags: selectedTags.ids,
                     });
+                }
             });
         }
     }
 
-    private async handleFileTagChange(fileName: string, selectedTags: Tags): Promise<void> {
+    private async handleFileTagChange(fileName: string, selectedTags: tag.Tags): Promise<void> {
         if (fileName === this.getSelectedFile())
             this.setState({selectedTags});
     }
 
     private handleNamespaceChange(): void {
+        // Tag namespace changes means either new tags are created or existing
+        // tags are deleted, we must reorder the list
+        this.tags = null;
         this.forceUpdate();
     }
 
-    private handleFilesChange(): void {
+    private handleDirectoryChange(): void {
+        // Files change could be a result of tag based filtering for which we
+        // must update the list but not necessarily reorder it
         this.forceUpdate();
     }
 
-    private resortTags(): void {
-        const source = this.getSelectedFile()
-            ? this.state.selectedTags.ids
-            : mapFiltersToSelectedTagsMemoized(this.props.browsing.filters);
-
-        this.setState({
-            initialSelectedTags: new Set(source.values()),
-        });
+    private handleFilterCleared(): void {
+        // Filter means tag list filter, this is an opportunity to reorder the
+        // tags list so that the new selected elements are moved to the top
+        this.tags = null;
+        this.forceUpdate();
     }
 }
 

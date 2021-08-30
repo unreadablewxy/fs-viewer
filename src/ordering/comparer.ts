@@ -1,4 +1,4 @@
-import type {Comparer, ComparerConfig, ComparerProvider} from "../browsing";
+import {browsing} from "..";
 
 export enum FilesOrder {
     System = 0,
@@ -6,9 +6,10 @@ export enum FilesOrder {
     Numeric,
     Tokenize,
     Dimensional,
+    LengthLexical,
 }
 
-export interface BuiltinComparerConfig extends ComparerConfig {
+export interface BuiltinComparerConfig extends browsing.ComparerConfig {
     type: "builtin.comparer";
     mode: FilesOrder;
     token?: string;
@@ -18,7 +19,7 @@ interface CompareCache<V> {
     [k: string]: V;
 }
 
-abstract class BuiltinComparer implements Comparer {
+abstract class BuiltinComparer implements browsing.Comparer {
     multiplier: number;
 
     constructor(reverse: boolean) {
@@ -49,6 +50,13 @@ function parseNumericName(fileName: string): number {
 class LexicalComparer extends BuiltinComparer {
     public compare(workingDirectory: string, first: string, second: string): number {
         return first.localeCompare(second) * this.multiplier;
+    }
+}
+
+class LengthLexicalComparer extends BuiltinComparer {
+    public compare(workingDirectory: string, first: string, second: string): number {
+        return first.length - second.length ||
+            first.localeCompare(second) * this.multiplier;
     }
 }
 
@@ -110,11 +118,12 @@ class SplittingNumericComparer extends TokenizingComparer {
     }
 }
 
-export class BuiltinComparerProvider implements ComparerProvider {
-    public async create(config: BuiltinComparerConfig): Promise<Comparer> {
+export class BuiltinComparerProvider implements browsing.ComparerProvider {
+    public async create(config: BuiltinComparerConfig): Promise<browsing.Comparer> {
         const reverse = config.mode < 0;
         switch (Math.abs(config.mode)) {
             case FilesOrder.Lexical: return new LexicalComparer(reverse);
+            case FilesOrder.LengthLexical: return new LengthLexicalComparer(reverse);
             case FilesOrder.Numeric: return new NumericComparer(reverse);
             case FilesOrder.Tokenize: return new SplittingLexicalComparer(config, reverse);
             case FilesOrder.Dimensional: return new SplittingNumericComparer(config, reverse);
@@ -124,6 +133,6 @@ export class BuiltinComparerProvider implements ComparerProvider {
     }
 }
 
-export function isBuiltinComparer(filter: ComparerConfig): filter is BuiltinComparerConfig {
+export function isBuiltinComparer(filter: browsing.ComparerConfig): filter is BuiltinComparerConfig {
     return filter.type === BuiltinComparer.TypeID;
 }

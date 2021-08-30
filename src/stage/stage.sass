@@ -16,33 +16,6 @@
         overflow: hidden
         position: relative
 
-        > div
-            height: 100%
-            text-align: center
-
-            > div
-                display: inline-block
-                height: 100%
-                white-space: nowrap
-                // This enables more aggressive GPU acceleration
-                will-change: transform
-                transform-origin: center
-
-                &::after
-                    content: ''
-                    display: inline-block
-                    visibility: hidden
-                    width: 0
-                    height: 100%
-                    vertical-align: middle
-
-        img
-            pointer-events: none
-
-        img, video
-            display: inline-block
-            vertical-align: middle
-
         > button
             position: absolute
             top: 0
@@ -63,3 +36,30 @@
 
             &:last-of-type
                 right: 0
+
+    .background
+        height: 100%
+        text-align: center
+
+    .content
+        display: inline-block
+        height: 100%
+        white-space: nowrap
+        // This enables more aggressive GPU acceleration
+        will-change: transform
+        transform-origin: center
+
+        &::after
+            content: ''
+            display: inline-block
+            visibility: hidden
+            width: 0
+            height: 100%
+            vertical-align: middle
+
+        img
+            pointer-events: none
+
+        img, video
+            display: inline-block
+            vertical-align: middle

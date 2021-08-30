@@ -4,7 +4,7 @@ import {withRouter, RouteComponentProps} from "react-router";
 import {History} from "history";
 import {ServiceLookup} from "inconel";
 
-import {GenericExtraDef, GenericMenuDef, GenericModeDef} from "../application";
+import {GenericExtraDef, GenericMenuDef, GenericModeDef} from "../application/component";
 import {sinkEvent} from "../event";
 import {BuiltinServices} from "../extension";
 
@@ -12,7 +12,9 @@ import {Extras} from "./extras";
 import {Menu} from "./menu";
 import {Modes} from "./modes";
 import {SystemButtons} from "./system-buttons";
-import type {WindowService} from "../window";
+
+import type {preference} from "..";
+import type {WindowService} from "../ipc.contract";
 
 // Props mapped from router provided props
 interface RouterProps {
@@ -26,11 +28,11 @@ interface ExternalProps {
 
     workingPath: string | null;
 
-    preferences: Preferences;
-    onSetPreferences(values: Partial<Preferences>): void;
+    preferences: preference.Set;
+    onSetPreferences(values: Partial<preference.Set>): void;
 
-    localPreferences: PreferenceNameSet;
-    onTogglePreferenceScope(name: keyof Preferences): void;
+    localPreferences: preference.NameSet;
+    onTogglePreferenceScope(name: preference.Name): void;
 
     services: ServiceLookup & BuiltinServices;
     extras: ReadonlyArray<GenericExtraDef>;
@@ -79,6 +81,7 @@ export class ShellComponent extends React.PureComponent<Props, State> {
                 preferences={preferences}
                 onNavigate={this.handleNavigate}
                 modes={this.props.modes}
+                focusAcquired={!this.state.focusAcquired}
             />
             <Extras
                 services={services}
@@ -87,7 +90,7 @@ export class ShellComponent extends React.PureComponent<Props, State> {
                 extras={this.props.extras}
                 locationPath={this.props.locationPath}
             />
-            <nav className={this.state.focusAcquired ? "panel focus" : "panel"}
+            <nav className={this.state.focusAcquired ? "layer focus" : "layer"}
                 onMouseDown={sinkEvent}
             >
                 <SystemButtons window={this.props.window} />

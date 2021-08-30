@@ -1,12 +1,15 @@
 import {existsSync, promises as afs} from "fs";
 import {join as joinPath, sep as pathSeparator} from "path";
+
+import type {preference} from "..";
 import type {RendererArguments} from "../ipc.contract";
 
-export const defaultPreferences: Preferences = {
+export const defaultPreferences: preference.Set = {
     columns: 6,
     order: 0,
     thumbnail: "system",
     thumbnailSizing: "cover",
+    thumbnailLabel: "full",
     preload: 1,
     extensions: [],
     lineupPosition: "bottom",
@@ -23,7 +26,7 @@ const configFilePath = joinPath(configRoot, "config.json");
 const extensionRoot = joinPath(homePath, ".fs-viewer-extensions");
 
 function writePreferences(
-    value: Partial<Preferences>,
+    value: Partial<preference.Set>,
     path: string,
 ): Promise<void> {
     return afs.writeFile(path, JSON.stringify(value), configEncoding);
@@ -31,14 +34,14 @@ function writePreferences(
 
 export function loadPreferenceFile(
     path: string,
-): Promise<Partial<Preferences>> {
+): Promise<Partial<preference.Set>> {
     return afs.readFile(path, configEncoding).then(JSON.parse);
 }
 
-export async function savePreferences(value: Preferences): Promise<void>;
-export async function savePreferences(value: Partial<Preferences>, directory: string): Promise<void>;
+export async function savePreferences(value: preference.Set): Promise<void>;
+export async function savePreferences(value: Partial<preference.Set>, directory: string): Promise<void>;
 export async function savePreferences(
-    value: Preferences | Partial<Preferences>,
+    value: preference.Set | Partial<preference.Set>,
     directory?: string,
 ): Promise<void> {
     let path: string;
@@ -55,7 +58,7 @@ export async function savePreferences(
     return writePreferences(value, path);
 }
 
-export function loadPreferences(): Promise<Preferences> {
+export function loadPreferences(): Promise<preference.Set> {
     return loadPreferenceFile(configFilePath)
         .then(d => Object.assign({}, defaultPreferences, d))
         .catch(() => defaultPreferences);

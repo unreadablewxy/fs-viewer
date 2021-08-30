@@ -10,6 +10,9 @@ import readline from "readline";
 
 import {getHomePath, loadPreferenceFile, rcFileName as preferencesFile} from "./preferences";
 
+import type {preference} from "..";
+import type {OpenDirectoryResult} from "../ipc.contract";
+
 export {joinPath};
 
 export function readDirectory(path: string): Promise<Dirent[]> {
@@ -95,7 +98,7 @@ export async function openDirectory(path: string): Promise<OpenDirectoryResult> 
         preferences: {},
     };
 
-    let loadPrefsTask: Promise<Partial<Preferences>> | null = null;
+    let loadPrefsTask: Promise<Partial<preference.Set>> | null = null;
 
     for (let n = 0; n < files.length; ++n) {
         const entry = files[n];

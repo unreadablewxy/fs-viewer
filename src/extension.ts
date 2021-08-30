@@ -5,14 +5,10 @@ import type {
 import type {match} from "react-router";
 
 import type {Service as DialogService} from "./dialog";
-import type {Service as IPCService} from "./ipc";
-import type {Service as ReaderService} from "./reader";
-import type {BrowsingService} from "./browsing";
-import type {Service as TaggingService} from "./tag";
-import type {Service as WriterService} from "./writer";
 import type {TransitionService} from "./stage/transition-service";
-import type {PreferenceService} from "./application/preference-service";
 import type {ProgressService} from "./progress";
+
+import type {browsing, ipc, io, preference, tag} from "..";
 
 /**
  * All services offered by the application to extensions
@@ -22,16 +18,16 @@ export interface BuiltinServices {
     readonly dialog: DialogService;
 
     // Manages IPC tunnels to other programs
-    readonly ipc: IPCService;
+    readonly ipc: ipc.Service;
 
     // Readonly file system operations
-    readonly reader: ReaderService;
-    readonly writer: WriterService;
+    readonly reader: io.Reader;
+    readonly writer: io.Writer;
 
-    readonly browsing: BrowsingService;
-    readonly tagging: TaggingService;
+    readonly browsing: browsing.Service;
+    readonly tagging: tag.Service;
     readonly transition: TransitionService;
-    readonly preference: PreferenceService;
+    readonly preference: preference.Service;
     readonly progress: ProgressService;
 }
 
@@ -56,16 +52,16 @@ export interface ComponentDefinition<ServiceNames extends string, PreferenceMapp
     /**
      * The function that maps preferences to the component's props
      */
-    readonly selectPreferences?: (prefs: Preferences) => PreferenceMappedProps;
+    readonly selectPreferences?: (prefs: preference.Set) => PreferenceMappedProps;
 }
 
 export interface MenuSpecificProps {
     readonly path: string;
 
-    onSetPreferences(values: Partial<Preferences>): void;
+    onSetPreferences(values: Partial<preference.Set>): void;
 
-    readonly localPreferences: PreferenceNameSet;
-    onTogglePreferenceScope(name: keyof Preferences): void;
+    readonly localPreferences: preference.NameSet;
+    onTogglePreferenceScope(name: preference.Name): void;
 }
 
 export interface MenuSpecificDefs {

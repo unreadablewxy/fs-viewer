@@ -75,3 +75,31 @@ export function translateFault(
         return `Unexpected error while ${operation} ${resource}`;
     }
 }
+
+import {browsing, preference} from ".."; 
+
+export interface OpenDirectoryResult {
+    /**
+     * The default view
+     */
+    files: browsing.FilesView;
+
+    /**
+     * Location specific preference overrides (if any)
+     */
+    preferences: Partial<preference.Set>;
+}
+
+import type {WindowStatus} from "./main";
+
+export interface WindowService {
+    on: typeof window.addEventListener;
+    off: typeof window.removeEventListener;
+
+    close(): void;
+    maximize(): void;
+    minimize(): void;
+    unmaximize(): void;
+
+    getStatus(): Promise<WindowStatus>;
+}

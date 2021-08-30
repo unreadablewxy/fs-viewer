@@ -13,11 +13,11 @@ import * as React from "react";
 window.React = React;
 
 import {createBrowserHistory} from "history";
-import {Path as GalleryPath} from "./gallery";
+import {Path as GalleryPath} from "../gallery";
 const history = createBrowserHistory({ basename: window.location.pathname });
 history.replace(GalleryPath);
 
-import {Application} from "./application";
+import {Application} from "./component";
 const application = React.createElement(Application, {
     history,
     api,

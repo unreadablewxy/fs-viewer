@@ -1,45 +1,73 @@
 import * as React from "react";
-import {mdiViewGrid} from "@mdi/js";
+import {mdiClose, mdiViewGrid, mdiText, mdiTextShort} from "@mdi/js";
 
+import {RadioButtons} from "../radio-buttons";
+import {Help} from "../help";
 import {NumericInput} from "../number-input";
 import {ScopeToggle} from "../scope-toggle";
 
 import {Path} from "./constants";
 
+import type {preference} from "..";
+
 interface PreferenceMappedProps {
     columns: number;
-    thumbnail: Thumbnailer;
-    thumbnailSizing: ThumbnailSizing;
+    thumbnail: preference.Thumbnailer;
+    thumbnailLabel: preference.ThumbnailLabel,
+    thumbnailSizing: preference.ThumbnailSizing;
     thumbnailPath?: string;
-    thumbnailResolution?: ThumbnailResolution;
+    thumbnailResolution?: preference.ThumbnailResolution;
 }
 
 interface Props extends PreferenceMappedProps {
 
-    onSetPreferences(values: Partial<Preferences>): void;
+    onSetPreferences(values: Partial<preference.Set>): void;
 
-    localPreferences: PreferenceNameSet;
-    onTogglePreferenceScope(name: keyof Preferences): void;
+    localPreferences: preference.NameSet;
+    onTogglePreferenceScope(name: preference.Name): void;
 }
 
-export class Menu extends React.PureComponent<Props> {
-    private readonly toggleColumnsScope: () => void;
-    private readonly toggleThumbnailerScope: () => void;
-    private readonly toggleThumbnailSizingScope: () => void;
+const thumbnailPathHelp = "Supported variables: \
+\n  {directory} - The opened directory\
+\n  {file-stem} - File name, without extension\
+\n  {file-name} - File name, with extension";
 
+const lineupDockingModes: {
+    id: preference.ThumbnailLabel, title: string, icon: string
+}[] = [
+    {
+        id: "disable",
+        title: "Disable",
+        icon: mdiClose,
+    },
+    {
+        id: "full",
+        title: "Full",
+        icon: mdiText,
+    },
+    {
+        id: "one-line",
+        title: "Limited",
+        icon: mdiTextShort,
+    },
+];
+
+export class Menu extends React.PureComponent<Props> {
     constructor(props: Props) {
         super(props);
 
-        this.toggleColumnsScope = () => this.props.onTogglePreferenceScope("columns");
-        this.toggleThumbnailerScope = () => this.props.onTogglePreferenceScope("thumbnail");
-        this.toggleThumbnailSizingScope = () => this.props.onTogglePreferenceScope("thumbnailSizing");
-
         this.handleColumnsChange = this.handleColumnsChange.bind(this);
+        this.handleThumbnailerChange = this.handleThumbnailerChange.bind(this);
+        this.handleThumbnailLabelChanged = this.handleThumbnailLabelChanged.bind(this);
         this.handleThumbnailPathFormatChanged = this.handleThumbnailPathFormatChanged.bind(this);
         this.handleThumbnailResolutionChanged = this.handleThumbnailResolutionChanged.bind(this);
         this.handleThumbnailSizingChanged = this.handleThumbnailSizingChanged.bind(this);
-        this.handleThumbnailerChange = this.handleThumbnailerChange.bind(this);
     }
+
+    toggleColumnsScope = () => this.props.onTogglePreferenceScope("columns");
+    toggleThumbnailerScope = () => this.props.onTogglePreferenceScope("thumbnail");
+    toggleThumbnailLabelScope = () => this.props.onTogglePreferenceScope("thumbnailLabel");
+    toggleThumbnailSizingScope = () => this.props.onTogglePreferenceScope("thumbnailSizing");
 
     render(): React.ReactNode {
         const {
@@ -78,7 +106,10 @@ export class Menu extends React.PureComponent<Props> {
             </li>
             {thumbnail === "mapped" && <li>
                 <label>
-                    <div>Thumbnail path format</div>
+                    <div>
+                        <span>Thumbnail path format</span>
+                        <Help>{thumbnailPathHelp}</Help>
+                    </div>
                     <input type="text"
                         size={1}
                         value={thumbnailPath}
@@ -112,11 +143,29 @@ export class Menu extends React.PureComponent<Props> {
                     active={"thumbnailSizing" in localPreferences}
                     onClick={this.toggleThumbnailSizingScope} />
             </li>
+            <li>
+                <label htmlFor="">
+                    <div>Thumbnail Label</div>
+                    <RadioButtons
+                        options={lineupDockingModes}
+                        value={this.props.thumbnailLabel}
+                        onChange={this.handleThumbnailLabelChanged} />
+                </label>
+                <ScopeToggle
+                    active={"thumbnailLabel" in localPreferences}
+                    onClick={this.toggleThumbnailLabelScope} />
+            </li>
         </ul>;
     }
 
     handleColumnsChange(columns: number): void {
         this.props.onSetPreferences({columns});
+    }
+
+    handleThumbnailLabelChanged(
+        thumbnailLabel: preference.ThumbnailLabel
+    ): void {
+        this.props.onSetPreferences({thumbnailLabel});
     }
 
     handleThumbnailPathFormatChanged(
@@ -129,21 +178,21 @@ export class Menu extends React.PureComponent<Props> {
     handleThumbnailResolutionChanged(
         ev: React.ChangeEvent<HTMLSelectElement>
     ): void {
-        const thumbnailResolution = ev.target.value as ThumbnailResolution;
+        const thumbnailResolution = ev.target.value as preference.ThumbnailResolution;
         this.props.onSetPreferences({thumbnailResolution});
     }
 
     handleThumbnailerChange(
         ev: React.ChangeEvent<HTMLSelectElement>
     ): void {
-        const thumbnail = ev.target.value as Thumbnailer;
+        const thumbnail = ev.target.value as preference.Thumbnailer;
         this.props.onSetPreferences({thumbnail});
     }
 
     handleThumbnailSizingChanged(
         ev: React.ChangeEvent<HTMLSelectElement>
     ): void {
-        const thumbnailSizing = ev.target.value as ThumbnailSizing;
+        const thumbnailSizing = ev.target.value as preference.ThumbnailSizing;
         this.props.onSetPreferences({thumbnailSizing});
     }
 }
@@ -158,12 +207,14 @@ export const Definition = {
     selectPreferences: ({
         columns,
         thumbnail,
+        thumbnailLabel,
         thumbnailSizing,
         thumbnailPath,
         thumbnailResolution,
-    }: Preferences): PreferenceMappedProps => ({
+    }: preference.Set): PreferenceMappedProps => ({
         columns,
         thumbnail,
+        thumbnailLabel,
         thumbnailSizing,
         thumbnailPath,
         thumbnailResolution,

@@ -1,4 +1,3 @@
-import "./menu.sass";
 import * as React from "react";
 import {Icon} from "@mdi/react";
 import {
@@ -13,48 +12,32 @@ import {
     mdiViewCarousel
 } from "@mdi/js";
 
+import {NumericInput} from "../number-input";
+import {RadioButtons} from "../radio-buttons";
 import {ScopeToggle} from "../scope-toggle";
 
 import {Path} from "./constants";
 import {TransitionService} from "./transition-service";
-import { NumericInput } from "../number-input";
+
+import type {preference} from "..";
 
 interface PreferenceMappedProps {
     lineupEntries: number;
-    lineupPosition: PanelPosition;
+    lineupPosition: preference.PanelPosition;
     preload: number;
 }
 
 interface Props extends PreferenceMappedProps {
     transition: TransitionService;
 
-    onSetPreferences(values: Partial<Preferences>): void;
+    onSetPreferences(values: Partial<preference.Set>): void;
 
-    localPreferences: PreferenceNameSet;
-    onTogglePreferenceScope(name: keyof Preferences): void;
-}
-
-function RadioButtons({
-    options,
-    value,
-    onChange,
-}: {
-    options: {id: string, title: string, icon: string}[], 
-    value: string,
-    onChange(value: string): void,
-}) {
-    return <div className="radio-buttons">
-        {options.map(v => <button key={v.id}
-            className={value === v.id ? "active" : undefined}
-            title={v.title}
-            onClick={() => onChange(v.id)}>
-                <Icon path={v.icon} />
-            </button>)}
-    </div>;
+    localPreferences: preference.NameSet;
+    onTogglePreferenceScope(name: preference.Name): void;
 }
 
 const lineupDockingModes: {
-    id: PanelPosition, title: string, icon: string
+    id: preference.PanelPosition, title: string, icon: string
 }[] = [
     {
         id: "disable",
@@ -119,7 +102,7 @@ export class Menu extends React.PureComponent<Props> {
             <li>
                 <label>
                     <div>Scaling</div>
-                    <button className="toggle" onClick={this.toggleScaleToFit}>
+                    <button className="choice" onClick={this.toggleScaleToFit}>
                         <Icon path={transition.scaleToFit ? mdiFitToPage : mdiImageSizeSelectActual} />
                         <span>{transition.scaleToFit ? "Scale to fit" : "Actual size"}</span>
                     </button>
@@ -184,7 +167,7 @@ export class Menu extends React.PureComponent<Props> {
         this.props.onSetPreferences({lineupEntries});
     }
 
-    handleSetLineupPosition(lineupPosition: PanelPosition): void {
+    handleSetLineupPosition(lineupPosition: preference.PanelPosition): void {
         this.props.onSetPreferences({lineupPosition});
     }
 
@@ -219,7 +202,7 @@ export const Definition = {
         lineupEntries,
         lineupPosition,
         preload,
-    }: Preferences): PreferenceMappedProps => ({
+    }: preference.Set): PreferenceMappedProps => ({
         lineupEntries,
         lineupPosition,
         preload,

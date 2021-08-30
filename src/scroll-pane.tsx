@@ -1,5 +1,6 @@
 import "./scroll-pane.sass"
 import * as React from "react";
+import {DraggableCore, DraggableData, DraggableEvent} from 'react-draggable';
 
 interface Props {
     children: React.ReactNode;
@@ -57,10 +58,10 @@ export class ScrollPane extends React.PureComponent<Props, State> {
         this.handle = React.createRef<HTMLDivElement>();
 
         this.handleContentScroll = this.handleContentScroll.bind(this);
+        this.handleDragEnd = this.handleDragEnd.bind(this);
+        this.handleDragStart = this.handleDragStart.bind(this);
         this.handleTrackWheel = this.handleTrackWheel.bind(this);
-        this.handleMouseMove = this.handleMouseMove.bind(this);
-        this.handleMouseUp = this.handleMouseUp.bind(this);
-        this.beginDrag = this.beginDrag.bind(this);
+        this.handleDragMove = this.handleDragMove.bind(this);
         this.updateHandle = this.updateHandle.bind(this);
     }
 
@@ -92,8 +93,6 @@ export class ScrollPane extends React.PureComponent<Props, State> {
 
         if (this.content.current)
             this.content.current.removeEventListener("scroll", this.handleContentScroll);
-
-        this.removeMouseHandlers();
     }
 
     render(): React.ReactNode {
@@ -104,7 +103,13 @@ export class ScrollPane extends React.PureComponent<Props, State> {
                 {children}
             </div>
             <div className="track" onWheel={this.handleTrackWheel}>
-                <div ref={this.handle} onMouseDown={this.beginDrag}></div>
+                <DraggableCore
+                    onStart={this.handleDragStart}
+                    onDrag={this.handleDragMove}
+                    onStop={this.handleDragEnd}
+                >
+                    <div ref={this.handle}></div>
+                </DraggableCore>
             </div>
         </div>;
     }
@@ -121,11 +126,25 @@ export class ScrollPane extends React.PureComponent<Props, State> {
         }
     }
 
-    handleMouseMove(ev: MouseEvent): void {
+    handleDragEnd(event: DraggableEvent, data: DraggableData): void {
+        this.setState({
+            anchor: null,
+            scrollStart: null,
+        });
+    }
+
+    handleDragStart(event: DraggableEvent, {y}: DraggableData): void {
+        this.setState({
+            anchor: y,
+            scrollStart: this.content.current?.scrollTop || 0,
+        });
+    }
+
+    handleDragMove(event: DraggableEvent, {y}: DraggableData): void {
         const contentElement = this.content.current;
         if (contentElement) {
             const scroll = getScroll(contentElement, this.handle.current as HTMLElement);
-            const mouseOffset = ev.pageY - (this.state.anchor as number);
+            const mouseOffset = y - (this.state.anchor as number);
             
             let handleOffset = (this.state.scrollStart as number) + scroll.range * mouseOffset / scroll.handle.range;
             if (handleOffset < 0) {
@@ -136,30 +155,6 @@ export class ScrollPane extends React.PureComponent<Props, State> {
 
             contentElement.scrollTop = handleOffset;
         }
-    }
-
-    handleMouseUp(ev: MouseEvent): void {
-        this.setState({
-            anchor: null,
-            scrollStart: null,
-        });
-
-        this.removeMouseHandlers();
-    }
-
-    beginDrag(ev: React.MouseEvent<HTMLDivElement>): void {
-        this.setState({
-            anchor: ev.pageY,
-            scrollStart: this.content.current?.scrollTop || 0,
-        });
-
-        document.addEventListener("mousemove", this.handleMouseMove);
-        document.addEventListener("mouseup", this.handleMouseUp);
-    }
-
-    private removeMouseHandlers() {
-        document.removeEventListener("mousemove", this.handleMouseMove);
-        document.removeEventListener("mouseup", this.handleMouseUp);
     }
 
     private updateHandle(): void {

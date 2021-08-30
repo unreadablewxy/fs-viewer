@@ -7,14 +7,14 @@ const path = require("path");
 const platform = os.platform();
 const pathBuild = path.resolve(__dirname, "build");
 
-var renderer = from("./src/index.ts")
+var renderer = from("./src/application/index.ts")
     .to("web", pathBuild, "[chunkhash].js", "dev.js")
     .withUnacceptableLicense("GPL-3.0")
     .withDefine("BUILD_TYPE", "pub", "dev")
     .withDefine("PLATFORM", os.platform())
     .withCss("index.css")
     .withReact()
-    .withHtml("./src/index.html", "index.html")
+    .withHtml("./src/application/index.html", "index.html")
     .withNoParse(/src(\\|\/)application(\\|\/)esimport.js$/);
 
 var api = from("./src/api/index.ts")

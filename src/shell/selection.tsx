@@ -2,10 +2,10 @@ import * as React from "react";
 import {mdiSelection} from "@mdi/js";
 import {Icon} from "@mdi/react";
 
-import {BrowsingService} from "../browsing";
+import type {browsing} from "..";
 
 interface Props {
-    browsing: BrowsingService;
+    browsing: browsing.Service;
 }
 
 export class Selection extends React.PureComponent<Props> {

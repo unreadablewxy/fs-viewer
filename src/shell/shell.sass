@@ -23,7 +23,7 @@ nav
     ul
         @include list-no-defaults
 
-    .system.background
+    .panel.system
         float: right
 
     .scope-toggle
@@ -85,15 +85,15 @@ nav
         margin: 0 0 (-$space-narrow) (-$space-default)
 
 // Shared components, These are considered a part of the interface
-.panel
-    .background
+.layer
+    .panel
         display: inline-block
         border-radius: 0 0 math.div($space-narrow, 2) math.div($space-narrow, 2)
         background-color: $color-panel
         pointer-events: auto
         transition: box-shadow $time-resize-animation * 2, background-color $time-resize-animation
 
-    &.focus .background, .background:hover
+    &.focus .panel, .panel:hover
         box-shadow: 0 0 $space-default $color-panel-shadow
         background-color: $color-panel-focus
         backdrop-filter: blur(0.2em)

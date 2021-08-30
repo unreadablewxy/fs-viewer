@@ -1,9 +1,8 @@
 import {promises as afs} from "fs";
-import {join as joinPath} from "path";
 
 import {Debounce} from "../debounce";
 import {ErrorCode, Fault} from "../ipc.contract";
-import {getAttr, setAttr} from "./attrs";
+import {getAttr, removeAttr, setAttr} from "./attrs";
 
 const textEncoding = "utf-8";
 
@@ -14,8 +13,8 @@ interface FileSystem {
     getAttribute(path: string, name: string): Promise<ArrayBuffer | Fault>;
     removeAttribute(path: string, name: string): void;
 
-    loadObject(directory: string, file: string): Promise<Record<string, unknown> | Fault>;
-    patchObject(directory: string, file: string, patch: Record<string, unknown>): Promise<void>;
+    loadObject(path: string): Promise<Record<string, unknown> | Fault>;
+    patchObject(path: string, patch: Record<string, unknown>): Promise<void>;
 
     loadTextFile(path: string): Promise<string[] | Fault>;
     patchTextFile(path: string, patch: Record<number, string>): Promise<void>;
@@ -103,15 +102,14 @@ export class CachedFileSystem implements FileSystem {
         return value;
     }
 
-    async loadObject(directory: string, file: string): Promise<Record<string, unknown> | Fault> {
-        const value = await this.ensureObjectLoaded(joinPath(directory, file));
+    async loadObject(path: string): Promise<Record<string, unknown> | Fault> {
+        const value = await this.ensureObjectLoaded(path);
         return typeof value === "number"
             ? {code: value as ErrorCode}
             : value.data;
     }
 
-    async patchObject(directory: string, file: string, patch: Record<string, unknown>): Promise<void> {
-        const path = joinPath(directory, file);
+    async patchObject(path: string, patch: Record<string, unknown>): Promise<void> {
         const value = await this.ensureObjectLoaded(path);
         if (typeof value === "number") {
             this.objects.set(path, {
@@ -176,8 +174,14 @@ export class CachedFileSystem implements FileSystem {
     }
 
     private flushAttr(path: string, name: string, entry: CachedValue<ArrayBuffer>): Promise<void> {
-        return setAttr(path, name, Buffer.from(entry.data)).
-            finally(() => entry.changed = false);
+        if (entry.data.byteLength)
+            return setAttr(path, name, Buffer.from(entry.data)).
+                finally(() => { entry.changed = false; });
+
+        return removeAttr(path, name).then(
+            () => { this.attrs.delete(attrKey(path, name)); },
+            e => (e.code === "ENODATA" || e.code === "ENOENT") ? undefined : Promise.reject(e)
+        );
     }
 
     private flushObject(path: string, entry: CachedValue<Record<string, unknown>>): Promise<void> {

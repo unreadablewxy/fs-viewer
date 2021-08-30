@@ -1,8 +1,8 @@
 import * as React from "react";
 import {Icon} from "@mdi/react";
 import {
-    mdiApplication,
-    mdiFolderCog,
+    mdiAccount,
+    mdiFolder,
 } from "@mdi/js";
 
 interface Props {
@@ -16,10 +16,10 @@ export function ScopeToggle({active, onClick}: Props): JSX.Element {
 
     if (active) {
         tooltip = "Saved to directory";
-        icon = mdiFolderCog;
+        icon = mdiFolder;
     } else {
         tooltip = "Saved to account";
-        icon = mdiApplication;
+        icon = mdiAccount;
     }
 
     return <div className="scope-toggle">

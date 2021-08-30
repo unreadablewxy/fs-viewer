@@ -2,15 +2,16 @@ import "./thumbnail.sass"
 import * as React from "react";
 
 import {Image} from "./image";
+import type {browsing, preference} from "..";
 
 interface Props {
-    files: FilesView;
+    files: browsing.FilesView;
     index: number;
     pathFormat?: string;
-    thumbnailResolution?: ThumbnailResolution;
+    thumbnailResolution?: preference.ThumbnailResolution;
     anchor?: boolean;
     selected?: boolean;
-    onClick: (index: number, event: React.MouseEvent) => void;
+    onClick: (index: number, select: boolean, event: React.MouseEvent) => void;
 }
 
 function renderThumbnail({onClick, anchor, selected, ...props}: Props) {
@@ -20,9 +21,14 @@ function renderThumbnail({onClick, anchor, selected, ...props}: Props) {
     if (anchor) className += " anchor";
     if (selected) className += " selected";
 
-    return <li className={className} onClick={ev => onClick(props.index, ev)}>
+    function handleClick(ev: React.MouseEvent<HTMLElement>): void {
+        if (ev.target === ev.currentTarget)
+            onClick(props.index, ev.currentTarget.tagName === "DIV", ev);
+    }
+
+    return <li className={className} onClick={handleClick}>
         <Image {...props} />
-        <div>{fileName}</div>
+        <div onClick={handleClick}>{fileName}</div>
     </li>;
 }
 

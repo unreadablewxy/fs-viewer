@@ -4,10 +4,13 @@ import * as React from "react";
 import type {match} from "react-router-dom";
 import type {History} from "history";
 import {createSelector} from "reselect";
-import {ComponentDefinition as BaseComponentDefinition, ServiceLookup, HostBuilder, BuiltinNamespace} from "inconel";
+import {
+    ComponentDefinition as BaseComponentDefinition,
+    BuiltinNamespace,
+    HostBuilder,
+    ServiceLookup,
+} from "inconel";
 
-import type {WindowService} from "../window";
-import {create as createBrowsingService} from "../browsing";
 import {stringifyError} from "../error";
 import {
     BuiltinServices,
@@ -32,11 +35,15 @@ import {Shell} from "../shell";
 import {createTransitionService} from "../stage";
 import {createTaggingService} from "../tag";
 
+import {create as createBrowsingService} from "./browsing";
 import {builtinMenus, builtinModes} from "./builtin";
 import {create as createPreferenceService} from "./preference-service";
 import {WebExtensionLoader} from "./react-loader";
 
-const parentPreference: {[name in PreferenceName]?: PreferenceName} = {
+import type {browsing, preference} from "..";
+import type {WindowService} from "../ipc.contract";
+
+const parentPreference: {[name in preference.Name]?: preference.Name} = {
     "thumbnailPath": "thumbnail",
     "thumbnailResolution": "thumbnail",
 };
@@ -46,14 +53,14 @@ const getEffectivePreferencesMemoized = createSelector(
     (s: State) => s.localPreferences,
     (s: State) => s.localPreferencesUsed,
     (
-        global: Preferences | null,
-        directory: Partial<Preferences> | null,
-        mask: PreferenceNameSet
-    ): Preferences | null => {
+        global: preference.Set | null,
+        directory: Partial<preference.Set> | null,
+        mask: preference.NameSet
+    ): preference.Set | null => {
         if (!directory || !global)
             return global;
 
-        const names = Object.keys(directory) as Array<PreferenceName>;
+        const names = Object.keys(directory) as Array<preference.Name>;
         const result = Object.assign({}, global);
         for (let n = names.length; n --> 0;) {
             const name = names[n];
@@ -69,13 +76,13 @@ const getEffectivePreferencesMemoized = createSelector(
 );
 
 function inferUsedLocalPreferences(
-    preferences: Partial<Preferences> | undefined
-): PreferenceNameSet {
+    preferences: Partial<preference.Set> | undefined
+): preference.NameSet {
     if (!preferences)
         return {};
 
-    const keys = Object.keys(preferences) as Array<keyof PreferenceNameSet>;
-    return keys.reduce<PreferenceNameSet>((r, v) => {
+    const keys = Object.keys(preferences) as Array<keyof preference.NameSet>;
+    return keys.reduce<preference.NameSet>((r, v) => {
         if (!(v in parentPreference))
             r[v] = 1;
 
@@ -92,7 +99,7 @@ interface Props {
 
 interface GenericProps extends CommonComponentProps {
     services: ServiceLookup;
-    preferences: Preferences;
+    preferences: preference.Set;
 }
 
 interface GenericModeProps extends GenericProps {
@@ -114,10 +121,10 @@ interface State {
 
     errors?: {[source: string]: Error};
 
-    // Preferences and the modification thereof
-    localPreferences: Partial<Preferences> | null;
-    localPreferencesUsed: PreferenceNameSet;
-    userPreferences: Preferences | null;
+    // preference.Set and the modification thereof
+    localPreferences: Partial<preference.Set> | null;
+    localPreferencesUsed: preference.NameSet;
+    userPreferences: preference.Set | null;
 
     services: ServiceLookup;
     extras: ReadonlyArray<GenericExtraDef>;
@@ -165,7 +172,7 @@ function mapMenuProps(
         };
 
         result.onTogglePreferenceScope = (name: string) => {
-            onTogglePreferenceScope(`${namespace}.${name}` as keyof Preferences);
+            onTogglePreferenceScope(`${namespace}.${name}` as keyof preference.Set);
         };
     }
     
@@ -189,9 +196,9 @@ function mapModeProps(
 export class Application extends React.Component<Props, State> {
     private readonly builtinServices: BuiltinServices;
 
-    private readonly setFilesView: (files: FilesView) => void;
+    private readonly setFilesView: (files: browsing.FilesView) => void;
     private readonly stopTransitions: () => void;
-    private readonly onPreferenceChanged: (delta: Partial<Preferences>, previous: Preferences) => void;
+    private readonly onPreferenceChanged: (delta: Partial<preference.Set>, previous: preference.Set) => void;
 
     constructor(props: Props) {
         super(props);
@@ -348,13 +355,13 @@ export class Application extends React.Component<Props, State> {
             localPreferences: preferences,
             localPreferencesUsed: inferUsedLocalPreferences(preferences),
         }, () => {
-            const prefs = getEffectivePreferencesMemoized(this.state) as Preferences;
+            const prefs = getEffectivePreferencesMemoized(this.state) as preference.Set;
             this.onPreferenceChanged(prefs, prefs);
         });
     }
 
-    handlePreferenceScope(name: PreferenceName): void {
-        const effective = getEffectivePreferencesMemoized(this.state) || {} as Preferences;
+    handlePreferenceScope(name: preference.Name): void {
+        const effective = getEffectivePreferencesMemoized(this.state) || {} as preference.Set;
 
         this.setState(({localPreferencesUsed, localPreferences, userPreferences}) => {
             if (localPreferencesUsed[name]) {
@@ -371,10 +378,10 @@ export class Application extends React.Component<Props, State> {
         });
     }
 
-    handleSetPreference<K extends PreferenceName>(
-        newPrefs: Pick<Preferences, K>,
+    handleSetPreference<K extends preference.Name>(
+        newPrefs: Pick<preference.Set, K>,
     ): void {
-        const effective = getEffectivePreferencesMemoized(this.state) || {} as Preferences;
+        const effective = getEffectivePreferencesMemoized(this.state) || {} as preference.Set;
 
         this.setState(({
             workingPath,
@@ -385,8 +392,8 @@ export class Application extends React.Component<Props, State> {
             type Returnables = "userPreferences" | "localPreferences";
 
             const result: Partial<Pick<State, Returnables>> = {};
-            const localChanges: Partial<Preferences> = {};
-            const userChanges: Partial<Preferences> = {};
+            const localChanges: Partial<preference.Set> = {};
+            const userChanges: Partial<preference.Set> = {};
 
             const names = Object.keys(newPrefs) as Array<K>;
             for (let n = names.length; n --> 0;) {

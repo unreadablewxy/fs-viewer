@@ -3,9 +3,8 @@ import {existsSync} from "fs";
 import {createConnection as createNetConnection} from "net";
 import {normalize, isAbsolute} from "path";
 
-import {EventListener, ProcessResult, RPCProxy} from "../ipc";
-
 import type {Readable, Writable} from "stream";
+import type {ipc} from "..";
 
 function assertPath(maybePath: string): string {
     maybePath = normalize(maybePath);
@@ -49,13 +48,13 @@ class Connection {
         private readonly input: Readable,
         private readonly output: Writable,
         private readonly close: () => void,
-        private readonly listener?: EventListener,
+        private readonly listener?: ipc.Listener,
     ) {
         this.input.on("data", this.onData.bind(this));
     }
 
-    public createProxy(): RPCProxy {
-        const proxy: RPCProxy = {
+    public createProxy(): ipc.RPCProxy {
+        const proxy: ipc.RPCProxy = {
             call: this.sendAndReceive.bind(this),
             close: this.release.bind(this),
         };
@@ -137,15 +136,15 @@ const connections = new Map<string, Connection>();
 export function createIPCConnection(
     socketPath: string,
     disconnect?: () => void,
-    listener?: EventListener,
-): Promise<RPCProxy> {
+    listener?: ipc.Listener,
+): Promise<ipc.RPCProxy> {
     socketPath = assertPath(socketPath);
 
     const existing = connections.get(socketPath);
     if (existing)
         return Promise.resolve(existing.createProxy());
 
-    return new Promise<RPCProxy>((resolve, reject) => {
+    return new Promise<ipc.RPCProxy>((resolve, reject) => {
         const socket = createNetConnection(socketPath);
 
         function close(): void {
@@ -171,9 +170,9 @@ export function createIPCConnection(
 
 export function createWorkerProcess(
     executablePath: string,
-    listener?: EventListener,
+    listener?: ipc.Listener,
     ...args: string[]
-): Promise<RPCProxy> {
+): Promise<ipc.RPCProxy> {
     executablePath = assertPath(executablePath);
 
     const process = execFile(executablePath, args);
@@ -192,28 +191,18 @@ export function createWorkerProcess(
 export function executeProgram(
     executablePath: string,
     ...args: string[]
-): Promise<ProcessResult> {
+): Promise<ipc.ProcessResult> {
     executablePath = assertPath(executablePath);
 
-    const process = execFile(executablePath, args);
     return new Promise((resolve, reject) => {
-        process.on("error", reject);
+        const process = execFile(executablePath, args, (err, stdout, stderr) => {
+            if (err)
+                return reject(err);
 
-        let outText = "";
-        process.stdout && process.stdout.on("data", (data) => {
-            outText += data.toString();
-        });
-
-        let errorText = "";
-        process.stderr && process.stderr.on("data", (data) => {
-            errorText += data.toString();
-        });
-
-        process.once("exit", (status) => {
             resolve({
-                status: status || 0,
-                out: outText,
-                err: errorText,
+                status: process.exitCode || 0,
+                out: stdout,
+                err: stderr,
             });
         });
     });

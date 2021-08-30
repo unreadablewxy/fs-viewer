@@ -1,11 +1,10 @@
-import {PreferenceService} from "../application/preference-service";
 import {FilesOrder, BuiltinComparerConfig, BuiltinComparerProvider, isBuiltinComparer} from "./comparer"
 
-import type {BrowsingService, Comparer} from "../browsing";
+import type {preference, browsing} from "..";
 
 export function initialize(
-    browsing: BrowsingService,
-    preferences: PreferenceService,
+    browsing: browsing.Service,
+    preferences: preference.Service,
 ): void {
     browsing.registerComparerProvider("builtin.comparer", new BuiltinComparerProvider());
 
@@ -21,10 +20,10 @@ export function initialize(
     });
 }
 
-function replaceComparer(browsing: BrowsingService, mode: FilesOrder, param?: string): void {
+function replaceComparer(browsing: browsing.Service, mode: FilesOrder, param?: string): void {
     for (const comparer of browsing.comparers) {
         if (isBuiltinComparer(comparer)) {
-            browsing.removeComparer((comparer as unknown as Comparer).id as number);
+            browsing.removeComparer((comparer as unknown as browsing.Comparer).id as number);
             break;
         }
     }

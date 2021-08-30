@@ -1,19 +1,19 @@
 import "./lineup.sass";
 import * as React from "react";
 
-import {BrowsingService} from "../browsing";
 import {Thumbnail} from "../thumbnail";
+import type {browsing, preference} from "..";
 
 interface PreferenceMappedProps {
     lineupEntries: number;
-    lineupPosition: PanelPosition;
+    lineupPosition: preference.PanelPosition;
     thumbnailPath?: string;
-    thumbnailSizing: ThumbnailSizing;
-    thumbnailResolution?: ThumbnailResolution;
+    thumbnailSizing: preference.ThumbnailSizing;
+    thumbnailResolution?: preference.ThumbnailResolution;
 }
 
 interface Props extends PreferenceMappedProps {
-    browsing: BrowsingService;
+    browsing: browsing.Service;
 }
 
 export class Lineup extends React.PureComponent<Props> {

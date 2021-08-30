@@ -1,12 +1,14 @@
 import * as React from "react";
 import {ServiceLookup} from "inconel";
 
-import {GenericExtraDef} from "../application";
+import {GenericExtraDef} from "../application/component";
 import {BuiltinServices} from "../extension";
+
+import type {preference} from "..";
 
 interface Props {
     services: ServiceLookup & BuiltinServices;
-    preferences: Preferences;
+    preferences: preference.Set;
 
     onNavigate(path: string, state?: unknown): void;
 

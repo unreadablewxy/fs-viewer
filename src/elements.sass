@@ -45,9 +45,7 @@ select > option
     background-color: rgba-to-rgb($color-panel-focus, $color-background)
 
 label > div:first-child
-    font-size: $size-font-small
-    margin-bottom: $space-narrow
-    text-transform: uppercase
+    @include form-label-text()
 
 button
     border: 0
@@ -57,14 +55,25 @@ button
     transition: background-color $time-button-background
     vertical-align: middle
 
-    &.toggle
+    // A choice is a series of icon + text large radio buttons
+    &.choice
         display: block
-        height: 2em
+        height: $space-text-box-height
         width: 100%
         text-align: left
 
         svg
             margin-right: $space-default
+
+    // A toggle is a square button containing solely an icon
+    &.toggle
+        padding: 0
+        text-align: center
+        border: 1px solid transparent
+
+        &.active
+            border-color: $color-input-outline-focus
+            background-color: transparentize($color-input-outline-focus, 0.8)
 
     &:hover
         background-color: $color-clickable-hover

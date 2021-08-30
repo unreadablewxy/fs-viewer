@@ -5,19 +5,21 @@ import {Icon} from "@mdi/react";
 import {ServiceLookup} from "inconel";
 
 import {Path as GalleryPath} from "../gallery";
-import {GenericMenuDef} from "../application";
+import {GenericMenuDef} from "../application/component";
 import {BuiltinServices} from "../extension";
 
 import {MenuButton} from "./menu-button";
 import {Selection} from "./selection";
 
+import type {preference} from "..";
+
 interface Props {
     services: ServiceLookup & BuiltinServices;
-    preferences: Preferences;
-    onSetPreferences(values: Partial<Preferences>): void;
+    preferences: preference.Set;
+    onSetPreferences(values: Partial<preference.Set>): void;
 
-    localPreferences: PreferenceNameSet;
-    onTogglePreferenceScope(name: keyof Preferences): void;
+    localPreferences: preference.NameSet;
+    onTogglePreferenceScope(name: preference.Name): void;
 
     workingPath: string | null;
     onOpenDirectory(): void;
@@ -85,7 +87,7 @@ export class Menu extends React.PureComponent<Props, State> {
                 MenuComponent = component;
         }
 
-        return <div className="background">
+        return <div className="panel">
             <ul className="actions">
                 <li className="application">
                     <Icon path={mdiImageBroken} />

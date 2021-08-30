@@ -6,12 +6,12 @@ import {mdiTagPlusOutline} from "@mdi/js";
 import Fuse from "fuse.js";
 
 import {ScrollPane} from "../../scroll-pane";
+import {Menu, Item as MenuItem} from "../../contextual-menu";
 
 import {Item} from "./item";
 import {Input} from "./input";
-import {Menu, Item as MenuItem} from "../../contextual-menu";
 
-import type {TagID} from "..";
+import type {tag} from "../..";
 
 export interface Tag {
     id: number;
@@ -39,14 +39,14 @@ const filterTags = createSelector(
 );
 
 interface Props {
-    tags: Readonly<Tag[]>;
+    tags: ReadonlyArray<Tag>;
     disabled?: boolean;
     selected: Set<number>;
-    onFilterChange: () => void;
-    onToggleTag: (tag: TagID) => void;
+    onFilterCleared: () => void;
+    onToggleTag: (tag: tag.ID) => void;
     onCreateTag: (tag: string) => void;
-    onRenameTag: (tag: TagID, newName: string) => void;
-    onDeleteTag: (tag: TagID) => void;
+    onRenameTag: (tag: tag.ID, newName: string) => void;
+    onDeleteTag: (tag: tag.ID) => void;
 }
 
 interface State {
@@ -194,7 +194,9 @@ export class TagList extends React.PureComponent<Props, State> {
     }
 
     handleInputChange(inputText: string): void {
-        this.props.onFilterChange();
+        if (!inputText)
+            this.props.onFilterCleared();
+
         this.setState({inputText, selectedIndex: 0});
     }
 

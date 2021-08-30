@@ -1,4 +1,5 @@
 import * as React from "react";
+import {DraggableCore, DraggableData, DraggableEvent} from "react-draggable";
 
 interface Props {
     children: React.ReactNode;
@@ -19,8 +20,6 @@ interface State {
     offset: Coordinate;
 }
 
-type DIVMouseEvent = React.MouseEvent<HTMLDivElement, MouseEvent>;
-
 export class Center extends React.PureComponent<Props, State> {
     constructor(props: Props) {
         super(props);
@@ -34,22 +33,14 @@ export class Center extends React.PureComponent<Props, State> {
             },
         };
 
-        this.handleMouseUp = this.handleMouseUp.bind(this);
-        this.handleMouseMove = this.handleMouseMove.bind(this);
-        this.handleMouseDown = this.handleMouseDown.bind(this);
+        this.handleDragEnd = this.handleDragEnd.bind(this);
+        this.handleDragMove = this.handleDragMove.bind(this);
+        this.handleDragStart = this.handleDragStart.bind(this);
         this.handleMouseWheel = this.handleMouseWheel.bind(this);
     }
 
     public render(): React.ReactNode {
         const {anchor, offset, scale} = this.state;
-        const otherProps: React.HTMLAttributes<HTMLDivElement> = {
-            onMouseDown: this.handleMouseDown,
-            onMouseUp: this.handleMouseUp,
-            onWheel: this.handleMouseWheel,
-        };
-
-        if (anchor)
-            otherProps.onMouseMove = this.handleMouseMove;
 
         const style = {
             transform: `translate(${offset.x}px, ${offset.y}px) scale(${scale})`,
@@ -58,9 +49,15 @@ export class Center extends React.PureComponent<Props, State> {
         const dragging = !!anchor;
 
         return <div className="center">
-            <div {...otherProps}>
-                <div style={style}>{this.props.children}</div>
-            </div>
+            <DraggableCore
+                onStart={this.handleDragStart}
+                onDrag={this.handleDragMove}
+                onStop={this.handleDragEnd}
+            >
+                <div className="background" onWheel={this.handleMouseWheel}>
+                    <div className="content" style={style}>{this.props.children}</div>
+                </div>
+            </DraggableCore>
 
             <button disabled={dragging || this.props.atStart}
                 onClick={this.props.onNavigatePrev}
@@ -71,22 +68,20 @@ export class Center extends React.PureComponent<Props, State> {
         </div>;
     }
 
-    private handleMouseUp(): void {
+    private handleDragEnd(): void {
         this.setState({anchor: null});
     }
 
-    private handleMouseMove({pageX, pageY}: DIVMouseEvent): void {
+    private handleDragMove(ev: DraggableEvent, {x, y}: DraggableData): void {
         this.setState(p => p.anchor && {
           offset: {
-            x: pageX - p.anchor.x,
-            y: pageY - p.anchor.y,
+            x: x - p.anchor.x,
+            y: y - p.anchor.y,
           },
         });
     }
 
-    private handleMouseDown({button, pageX, pageY}: DIVMouseEvent): void {
-        if (button !== 0) return;
-
+    private handleDragStart(ev: DraggableEvent, {x, y}: DraggableData): void {
         this.setState(p => ({
           anchor: {
             // We subtract because ultimately we want this in the move handler:
@@ -94,17 +89,42 @@ export class Center extends React.PureComponent<Props, State> {
             // Since on the other side is doing:
             // offset = mouse - original
             // We need to negate the offset part so it is double negated
-            x: pageX - p.offset.x,
-            y: pageY - p.offset.y,
+            x: x - p.offset.x,
+            y: y - p.offset.y,
           },
         }));
     }
 
-    private handleMouseWheel({deltaY}: React.WheelEvent<HTMLDivElement>): void {
-        const change = deltaY / -400;
-        if (change)
-            this.setState(p => ({
-                scale: Math.min(Math.max(0.1, p.scale + change), 4),
-            }));
+    private handleMouseWheel({
+        currentTarget,
+        deltaY,
+        clientX,
+        clientY,
+    }: React.WheelEvent<HTMLDivElement>): void {
+        let change = 1 + deltaY / -600;
+        if (change > 1) {
+            if (change * this.state.scale > 8) {
+                return;
+            }
+        } else {
+            if (change * this.state.scale < 0.3) {
+                return;
+            }
+        }
+
+        const rect = (currentTarget as HTMLElement).getBoundingClientRect();
+        this.setState(({offset, scale}) => {
+            // Transform to image centric coordniates
+            const relativeX = (clientX - rect.x) - (rect.width / 2) - offset.x;
+            const relativeY = (clientY - rect.y) - (rect.height / 2) - offset.y;
+
+            return {
+                offset: {
+                    x: offset.x + (relativeX - (relativeX * (scale * change) / scale)),
+                    y: offset.y + (relativeY - (relativeY * (scale * change) / scale)),
+                },
+                scale: scale * change,
+            };
+        });
     }
 }

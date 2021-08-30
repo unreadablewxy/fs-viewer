@@ -1,9 +1,11 @@
 import {protocol, ProtocolRequest, ProtocolResponse} from "electron";
 import {getImageForPath, flags} from "shell-image-win";
 
+import type {preference} from "..";
+
 type ResponseCallback = (response: (Buffer) | (ProtocolResponse)) => void;
 
-const resolutionMapping: {[k in ThumbnailResolution]: number} = {
+const resolutionMapping: {[k in preference.ThumbnailResolution]: number} = {
     "default": 256,
     "high": 400,
 };
@@ -22,7 +24,7 @@ function handleThumbnailRequest(request: ProtocolRequest, complete: ResponseCall
     else
         suffixOffset = request.url.length;
 
-    const resolution = resolutionMapping[size as ThumbnailResolution] || resolutionMapping.default;
+    const resolution = resolutionMapping[size as preference.ThumbnailResolution] || resolutionMapping.default;
     const requestPath = request.url.slice(prefixLength, suffixOffset)
         .replace("/", "\\");
 

@@ -5,6 +5,8 @@ import {getType as getMimeType} from "mime";
 import {join as joinPath} from "path";
 import {setTimeout} from "timers";
 
+import type {preference} from "..";
+
 interface DequeueRequest {
     handle: number;
 }
@@ -32,7 +34,7 @@ interface Thumbnailer extends Interface {
     on(event: "Error", handler: ErrorSignalHandler): void;
 }
 
-const resolutionMapping: {[k in ThumbnailResolution]: string} = {
+const resolutionMapping: {[k in preference.ThumbnailResolution]: string} = {
     "default": "normal",
     "high": "large",
 };
@@ -62,7 +64,7 @@ const pendingRequests: {[uri: string]: PendingRequest} = {};
 let unsubmitted: Batch = createBatch();
 let batchTimer: NodeJS.Timeout | null = null;
 
-function submitBatch(thumbnailer: Thumbnailer, size: ThumbnailResolution) {
+function submitBatch(thumbnailer: Thumbnailer, size: preference.ThumbnailResolution) {
     batchTimer = null;
     const batch = unsubmitted;
     unsubmitted = createBatch();

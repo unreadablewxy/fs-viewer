@@ -1,24 +1,24 @@
 import "./stage.sass";
 import * as React from "react";
 
-import {BrowsingService} from "../browsing";
-
-import {Path} from "./constants";
 import {Center} from "./center";
+import {Path} from "./constants";
 import {Lineup} from "./lineup";
 import {TransitionService} from "./transition-service";
 
+import type {browsing, preference} from "..";
+
 interface PreferenceMappedProps {
     lineupEntries: number;
-    lineupPosition: PanelPosition;
+    lineupPosition: preference.PanelPosition;
     preload: number;
     thumbnailPath?: string;
-    thumbnailSizing: ThumbnailSizing;
-    thumbnailResolution?: ThumbnailResolution;
+    thumbnailSizing: preference.ThumbnailSizing;
+    thumbnailResolution?: preference.ThumbnailResolution;
 }
 
 interface Props extends PreferenceMappedProps {
-    browsing: BrowsingService;
+    browsing: browsing.Service;
     transition: TransitionService;
 
     showActualSize: boolean;
@@ -30,7 +30,7 @@ interface State {
 
 const videoFileSuffices = new Set(["avi", "mkv", "mp4", "mov", "webm"]);
 
-function loadImage(files: FilesView, index: number): HTMLImageElement {
+function loadImage(files: browsing.FilesView, index: number): HTMLImageElement {
     const image = document.createElement("img");
     image.src = `file://${files.path}/${files.names[index]}`;
     return image;
@@ -231,7 +231,7 @@ export const Definition = {
         thumbnailPath,
         thumbnailSizing,
         thumbnailResolution,
-    }: Preferences): PreferenceMappedProps => ({
+    }: preference.Set): PreferenceMappedProps => ({
         lineupEntries,
         lineupPosition,
         preload,

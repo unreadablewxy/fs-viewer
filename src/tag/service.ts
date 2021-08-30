@@ -4,60 +4,35 @@ import {method} from "../interface";
 import {Fault, ErrorCode, translateFault} from "../ipc.contract";
 import {TagFilter, TagFilterProvider} from "./filter";
 
-import type {Namespace, NamespaceID, TagID, Tags} from ".";
-import type {BrowsingService} from "../browsing";
-import type {Service as Reader} from "../reader";
-import type {Service as Writer} from "../writer";
+import type {browsing, io, tag} from "..";
 
 const namespaceMismatch = "Unable to set tags of a file from another namespace";
 const attrTags = "user.tagids";
 const fileTagsCache = ".tags-cache";
 const tagsNSFileHeader = "#tags-namespace";
 
-interface Properties {
-    names: ReadonlyMap<number, string>;
-    namespace: number;
-}
-
-// Think of the tagging service as a caching layer for file tag data
-export interface TaggingService extends EventEmitter, Properties {
-    createTag(name: string): Promise<TagID>;
-    deleteTag(id: TagID): Promise<void>;
-    renameTag(id: TagID, newName: string): Promise<void>;
-
-    toggleFileTag(tag: TagID, fileName: string): Promise<void>;
-
-    assignTag(tag: TagID, fileNames: ReadonlyArray<string>): Promise<void>;
-    clearTag(tag: TagID, fileNames: ReadonlyArray<string>): Promise<void>;
-
-    getFiles(id: TagID): Promise<Set<string>>;
-    getUntaggedFiles(): Promise<Set<string>>;
-    getTags(file: string): Promise<Tags>;
-
-    on(event: "change", handler: () => void): this;
-    on(event: "filechange", handler: (fileName: string, tags: Tags) => void): this;
-}
 
 export function create(
-    reader: Reader,
-    writer: Writer,
+    reader: io.Reader,
+    writer: io.Writer,
     findTagNamespaceFile: (directory: string) => string,
-    browsing: BrowsingService,
-): TaggingService {
+    browsing: browsing.Service,
+): tag.Service {
     let workingDirectory: string;
 
-    let ns: Readonly<Namespace>;
+    let ns: Readonly<tag.Namespace>;
     let nsPath: string = "";
 
     let untagged: Set<string> | null = null;
-    let files = new Map<string, Tags>();
+    let files = new Map<string, tag.Tags>();
 
     /**
      * Emits an incremental update to the tags cache file
      * @param patch the patch to send
      */
-    function patchCache(patch: Record<string, TagID[] | null>): Promise<void | Fault> {
-        return writer.patchObject(workingDirectory, fileTagsCache, patch);
+    function patchCache(patch: Record<string, tag.ID[] | null>): Promise<void | Fault> {
+        const path = reader.joinPath(workingDirectory, fileTagsCache);
+        return writer.patchObject(path, patch);
     }
 
     /**
@@ -77,7 +52,7 @@ export function create(
      * @param fileName Name of the file being updated
      * @param tags The tags to be saved on the file
      */
-    function saveFileTags(fileName: string, tags: Tags): Promise<void> {
+    function saveFileTags(fileName: string, tags: tag.Tags): Promise<void> {
         const path = reader.joinPath(workingDirectory, fileName);
 
         const buffer = new ArrayBuffer((PLATFORM === "win32" ? 2 : 3) + tags.ids.size * 2);
@@ -97,7 +72,7 @@ export function create(
      * @param fileName Name of the file whose tags are requested
      * @returns The tags attached to the file or null if it has none
      */
-    async function loadFileTags(fileName: string): Promise<Tags | null> {
+    async function loadFileTags(fileName: string): Promise<tag.Tags | null> {
         const path = reader.joinPath(workingDirectory, fileName);
 
         const maybeData = await reader.getAttr(path, attrTags).
@@ -105,12 +80,13 @@ export function create(
                 ? null
                 : Promise.reject(e));
 
-        if (!maybeData) return null;
+        // Less than 4 bytes of data means not even 1 tag is set, so disregard
+        if (!maybeData || maybeData.byteLength < 4) return null;
         const data = new DataView(maybeData);
 
-        const result: Tags = {
+        const result: tag.Tags = {
             namespace: data.getUint16(0, true),
-            ids: new Set<TagID>(),
+            ids: new Set<tag.ID>(),
         };
     
         for (let n = 2; n < data.byteLength - 1; n += 2)
@@ -123,11 +99,11 @@ export function create(
      * @param lines the lines of the namespace file
      * @returns the deserialized tags namespace
      */
-    function parseTagNamespace(lines: string[]): Namespace {
+    function parseTagNamespace(lines: string[]): tag.Namespace {
         if (lines.length < 2 || lines[0] !== tagsNSFileHeader)
-            throw new Error("Tags namespace file appears corrupted");
+            throw new Error("tag.Tags namespace file appears corrupted");
 
-        const result: Namespace = {
+        const result: tag.Namespace = {
             identifier: parseInt(lines[1], 16),
             names: new Map<number, string>(),
             nextId: 0,
@@ -149,7 +125,7 @@ export function create(
         return result;
     }
 
-    async function openTagsNamespace(path: string): Promise<Namespace> {
+    async function openTagsNamespace(path: string): Promise<tag.Namespace> {
         try {
             const lines = await reader.loadTextFile(path);
             return parseTagNamespace(lines);
@@ -170,8 +146,12 @@ export function create(
         }
     }
 
-    async function applyCache(cache: Record<string, unknown>, directory: string, namespace: NamespaceID): Promise<void> {
-        const patch: Record<string, TagID[] | null> = {};
+    async function applyCache(
+        cache: Record<string, unknown>,
+        directory: string,
+        namespace: tag.NamespaceID,
+    ): Promise<void> {
+        const patch: Record<string, tag.ID[] | null> = {};
 
         for (const entry of await reader.readDirectory(directory)) {
             if (files.get(entry.name))
@@ -201,11 +181,12 @@ export function create(
 
         writer.flush(workingDirectory);
 
-        const loadTagCacheTask = reader.loadObject(newPath, fileTagsCache);
+        const loadTagCacheTask = reader.loadObject(
+            reader.joinPath(newPath, fileTagsCache));
 
         nsPath = findTagNamespaceFile(newPath);
         openTagsNamespace(nsPath).then(r => {
-            files = new Map<string, Tags>();
+            files = new Map<string, tag.Tags>();
 
             // avoid Promise.all, we can tolerate this one failing
             loadTagCacheTask.then(c => applyCache(c, newPath, r.identifier));
@@ -216,19 +197,19 @@ export function create(
         });
     }
 
-    function setNamespace(newVal: Namespace): void {
+    function setNamespace(newVal: tag.Namespace): void {
         ns = newVal;
         service.emit("change");
     }
 
-    function cloneNamespace(): Namespace {
+    function cloneNamespace(): tag.Namespace {
         return {
             ...ns,
             names: new Map(ns.names.entries()),
         };
     }
 
-    async function createTag(name: string): Promise<TagID> {
+    async function createTag(name: string): Promise<tag.ID> {
         const assignedId = ns.nextId;
 
         const updated = cloneNamespace();
@@ -241,9 +222,9 @@ export function create(
         return assignedId;
     }
 
-    async function deleteTag(id: TagID): Promise<void> {
+    async function deleteTag(id: tag.ID): Promise<void> {
         const tasks = [];
-        const patch: Record<string, TagID[] | null> = {};
+        const patch: Record<string, tag.ID[] | null> = {};
 
         // Delete the tag from files first, fail results in retry
         // The other way around puts us in a bad state with dangling pointers
@@ -263,7 +244,7 @@ export function create(
         await writer.patchTextFile(nsPath, {[id + 1]: ""});
     }
 
-    async function renameTag(id: TagID, newName: string): Promise<void> {
+    async function renameTag(id: tag.ID, newName: string): Promise<void> {
         const updated = cloneNamespace();
         updated.names.set(id, newName);
 
@@ -271,7 +252,7 @@ export function create(
         await writer.patchTextFile(nsPath, {[id + 1]: newName});
     }
 
-    async function getFileTags(fileName: string): Promise<Readonly<Tags>> {
+    async function getFileTags(fileName: string): Promise<Readonly<tag.Tags>> {
         let tags = files.get(fileName);
         if (!tags) {
             const loaded = await loadFileTags(fileName);
@@ -281,7 +262,7 @@ export function create(
             if (!tags) {
                 tags = loaded || {
                     namespace: ns.identifier,
-                    ids: new Set<TagID>(),
+                    ids: new Set<tag.ID>(),
                 };
 
                 files.set(fileName, tags);
@@ -296,7 +277,7 @@ export function create(
     // WARNING: Though the callback returns a promise, it must not defer
     //          mutating the provided tags object. Failing to head this warning
     //          will lead to unexpected data loss
-    type ChangeTags = (tags: Tags) => Promise<unknown>;
+    type ChangeTags = (tags: tag.Tags) => Promise<unknown>;
 
     async function updateFileTags(fileName: string, change: ChangeTags): Promise<void> {
         let tags = files.get(fileName);
@@ -306,7 +287,7 @@ export function create(
             // If something else beat us to the punch, use their value
             tags = files.get(fileName) || loaded || {
                 namespace: ns.identifier,
-                ids: new Set<TagID>(),
+                ids: new Set<tag.ID>(),
             };
         }
 
@@ -321,7 +302,7 @@ export function create(
     }
 
     function toggleFileTag(
-        tag: TagID,
+        tag: tag.ID,
         file: string,
     ): Promise<void> {
         return updateFileTags(file, tags => {
@@ -354,9 +335,9 @@ export function create(
     }
 
     function ensureTagAssigned(
-        tag: TagID,
+        tag: tag.ID,
         fileName: string,
-        patch: Record<string, TagID[] | null>,
+        patch: Record<string, tag.ID[] | null>,
     ): Promise<void> {
         return updateFileTags(fileName, tags => {
             if (tags.namespace !== ns.identifier)
@@ -377,9 +358,9 @@ export function create(
     }
 
     function ensureTagCleared(
-        id: TagID,
+        id: tag.ID,
         fileName: string,
-        patch: Record<string, TagID[] | null>,
+        patch: Record<string, tag.ID[] | null>,
         ignoreNsMismatch?: boolean,
     ): Promise<void> {
         return updateFileTags(fileName, tags => {
@@ -408,11 +389,11 @@ export function create(
     }
 
     function assignTag(
-        tag: TagID,
+        tag: tag.ID,
         fileNames: ReadonlyArray<string>,
     ): Promise<void> {
         const tasks = new Array<Promise<void>>();
-        const patch: Record<string, TagID[] | null> = {};
+        const patch: Record<string, tag.ID[] | null> = {};
 
         for (const file of fileNames)
             tasks.push(ensureTagAssigned(tag, file, patch));
@@ -422,11 +403,11 @@ export function create(
     }
 
     function clearTag(
-        tag: TagID,
+        tag: tag.ID,
         fileNames: ReadonlyArray<string>,
     ): Promise<void> {
         const tasks = new Array<Promise<void>>();
-        const patch: Record<string, TagID[] | null> = {};
+        const patch: Record<string, tag.ID[] | null> = {};
 
         for (const file of fileNames)
             tasks.push(ensureTagCleared(tag, file, patch));
@@ -435,7 +416,7 @@ export function create(
         return Promise.all(tasks) as unknown as Promise<void>;
     }
 
-    async function getFiles(tag: TagID): Promise<Set<string>> {
+    async function getFiles(tag: tag.ID): Promise<Set<string>> {
         const result = new Set<string>();
         if (!ns) return result;
 
@@ -449,7 +430,7 @@ export function create(
         return result;
     }
 
-    function isTagsEmpty(tags: Tags): boolean {
+    function isTagsEmpty(tags: tag.Tags): boolean {
         return tags.ids.size < 1;
     }
 
@@ -472,7 +453,7 @@ export function create(
         return untagged;
     }
 
-    const service = Object.defineProperties(new EventEmitter() as TaggingService, {
+    const service = Object.defineProperties(new EventEmitter() as tag.Service, {
         names: {
             configurable: false,
             get: () => ns.names,
